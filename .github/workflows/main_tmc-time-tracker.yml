@@ -55,7 +55,7 @@ jobs:
         with:
           app-name: 'tmc-time-tracker'
           slot-name: 'Production'
-          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_743F384246B748F08CFC3EC5655E5E76 }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
           package: ./tmc-time-tracker/flask_app
 
   build-electron-windows:
