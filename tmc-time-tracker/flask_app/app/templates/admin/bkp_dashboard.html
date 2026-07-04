@@ -1,0 +1,736 @@
+{% extends "base.html" %}
+
+{% block content %}
+<head>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@2.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@2.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/litepicker/dist/litepicker.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/litepicker/dist/css/litepicker.css"/>
+    
+    
+    <style>
+        .kpi-card { transition: all 0.3s ease; }
+        .kpi-card:hover { transform: translateY(-5px); box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.1); }
+        .custom-select { 
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%239CA3AF' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3e%3cpath d='M7 7l3-3 3 3m0 6l-3 3-3-3'/%3e%3c/svg%3e"); 
+            background-repeat: no-repeat; background-position: right 0.75rem center; background-size: 1.5em 1.5em; padding-right: 2.5rem; 
+        }
+    </style>
+</head>
+
+<div class="bg-gray-50 min-h-screen p-6 sm:p-8">
+    <div class="max-w-7xl mx-auto">
+        {# --- NEW: Language Selector --- #}
+        <div class="absolute top-4 right-4 flex items-center space-x-3">
+            <a href="{{ url_for('auth.set_language', lang_code='en') }}" title="English" class="opacity-50 hover:opacity-100 transition-opacity {{ 'opacity-100' if current_locale.language == 'en' }}">🇬🇧</a>
+            <a href="{{ url_for('auth.set_language', lang_code='de') }}" title="Deutsch" class="opacity-50 hover:opacity-100 transition-opacity {{ 'opacity-100' if current_locale.language == 'de' }}">🇩🇪</a>
+
+        </div>
+        
+        <div class="flex justify-center items-center mb-8 relative">
+            <h2 class="text-4xl font-bold text-gray-800 text-center">{{ _('Admin Dashboard') }}</h2>
+            <button id="manual-clock-out-all-btn" class="absolute right-0 btn bg-red-600 hover:bg-red-700 text-white">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd" /></svg>
+                {{ _('Clock-Out All') }}
+            </button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-10">
+            <div class="kpi-card bg-white p-4 rounded-xl shadow-md border-t-4 border-indigo-500"><h3 class="text-base font-semibold text-gray-600">{{ _('Total Users') }}</h3><p class="text-4xl font-bold text-gray-800 mt-2" id="kpi-total-users">0</p></div>
+            <div class="kpi-card bg-white p-4 rounded-xl shadow-md border-t-4 border-green-500"><h3 class="text-base font-semibold text-gray-600">{{ _('Users Active') }}</h3><p class="text-4xl font-bold text-gray-800 mt-2" id="kpi-users-active">0</p></div>
+            <div class="kpi-card bg-white p-4 rounded-xl shadow-md border-t-4 border-red-500"><h3 class="text-base font-semibold text-gray-600">{{ _('In Idle') }}</h3><p class="text-4xl font-bold text-gray-800 mt-2" id="kpi-users-idle">0</p></div>
+            <div class="kpi-card bg-white p-4 rounded-xl shadow-md border-t-4 border-orange-500"><h3 class="text-base font-semibold text-gray-600">{{ _('On Break') }}</h3><p class="text-4xl font-bold text-gray-800 mt-2" id="kpi-users-break">0</p></div>
+            <div class="kpi-card bg-white p-4 rounded-xl shadow-md border-t-4 border-slate-500"><h3 class="text-base font-semibold text-gray-600">{{ _("Users Inactive") }}</h3><p class="text-4xl font-bold text-gray-800 mt-2" id="kpi-users-inactive">0</p></div>
+        </div>
+
+        <div class="bg-white p-6 rounded-xl shadow-md mb-10">
+            <h3 class="text-2xl font-bold text-gray-800 mb-4">{{ _('Currently Clocked-in Users') }}</h3>
+            <div class="overflow-x-auto">
+                <table class="min-w-full hidden">
+    <thead class="bg-gray-100">
+        <tr>
+            <th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">{{ _('Username') }}</th>
+            <th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">{{ _('Clock-In') }}</th>
+            <th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">{{ _('Status') }}</th>
+            <th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">{{ _('Location') }}</th>
+            <th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">{{ _('App Version') }}</th> <th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">{{ _('Expected Clock Out') }}</th>
+        </tr>
+    </thead>
+    <tbody id="active-users-table-body" class="divide-y divide-gray-200"></tbody>
+</table>
+                <p class="text-gray-500 text-center py-6" id="no-active-users-message">{{ _('No users are currently clocked in.') }}</p>
+            </div>
+        </div>
+        <div class="bg-white p-6 rounded-xl shadow-md mb-10">
+            <h3 class="text-2xl font-bold text-gray-800 mb-4">{{ _("Today's Activity Summary") }}</h3>
+            <div class="overflow-x-auto">
+                <table class="min-w-full hidden"><thead class="bg-gray-100"><tr><th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">{{ _('Username') }}</th><th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">{{ _('Clock-In') }}</th><th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">{{ _('Clock-Out') }}</th><th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">{{ _('Gross Duration') }}</th><th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">{{ _('Inactive Time') }}</th><th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">{{ _('Net Worked') }}</th></tr></thead><tbody id="daily-summary-table-body" class="divide-y divide-gray-200"></tbody></table>
+                <p class="text-gray-500 text-center py-6" id="no-daily-activity-message">{{ _('No user activity recorded today.') }}</p>
+            </div>
+        </div>
+        <div class="bg-white p-6 rounded-xl shadow-md mb-10">
+            <h3 class="text-2xl font-bold text-gray-800 mb-4">{{ _('Real-Time Activity (Today)') }}</h3>
+            <div id="realtime-timeline-chart-container" class="relative min-h-[250px]"><canvas id="realtime-activity-timeline-canvas"></canvas><p id="realtime-timeline-message" class="absolute inset-0 flex items-center justify-center text-gray-500">{{ _('Loading real-time data...') }}</p></div>
+        </div>
+
+        <div class="bg-white p-6 rounded-xl shadow-md mb-10">
+            <h3 class="text-2xl font-bold text-gray-800 mb-4 border-b pb-4">{{ _('Historical Reports') }}</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 items-end">
+                <div><label for="report-user-select" class="block text-sm font-medium text-gray-700">{{ _('User') }}</label><select id="report-user-select" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 custom-select">{% for user in users_for_filter %}<option value="{{ user.id }}">{{ user.username }}</option>{% endfor %}</select></div>
+                <div class="md:col-span-2"><label for="report-date-range" class="block text-sm font-medium text-gray-700">{{ _('Date Range') }}</label><input type="text" id="report-date-range" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"></div>
+            </div>
+            <div class="border-b border-gray-200">
+                <nav id="report-tabs" class="-mb-px flex space-x-6">
+                    <a href="#" data-tab="activity" class="whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm text-indigo-600 border-indigo-500">{{ _('Activity Report') }}</a><a href="#" data-tab="inactivity" class="whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">{{ _('Inactivity Log') }}</a><a href="#" data-tab="usage" class="whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">{{ _('App Usage') }}</a><a href="#" data-tab="timeline" class="whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">{{ _('Timeline') }}</a>
+                </nav>
+            </div>
+            <div class="mt-6">
+                <div id="tab-content-activity">
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full">
+                            <thead class="bg-gray-100">
+                                <tr>
+                                    <th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">{{ _('Date') }}</th>
+                                    <th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">{{ _('Username') }}</th>
+                                    <th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">{{ _('Clock In') }}</th>
+                                    <th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">{{ _('Clock Out') }}</th>
+                                    <th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">{{ _('Net Hours') }}</th>
+                                    <th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">{{ _('Break') }}</th>
+                                    <th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">{{ _('Idle') }}</th>
+                                </tr>
+                            </thead>
+                            <tbody id="report-table-body" class="divide-y divide-gray-200"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div id="tab-content-inactivity" class="hidden">
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full">
+                            <thead class="bg-gray-100">
+                                <tr>
+                                    <th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">{{ _('Username') }}</th>
+                                    <th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">{{ _('Type') }}</th>
+                                    <th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">{{ _('Start') }}</th>
+                                    <th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">{{ _('Duration') }}</th>
+                                    <th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">{{ _('Reason') }}</th>
+                                    </tr>
+                            </thead>
+                            <tbody id="inactivity-report-tbody" class="divide-y divide-gray-200"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div id="tab-content-usage" class="hidden"><div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start"><div class="lg:col-span-1 min-h-[300px]"><canvas id="app-usage-pie-chart"></canvas></div><div class="lg:col-span-2 overflow-x-auto"><table class="min-w-full"><thead class="bg-gray-100"><tr><th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">{{ _('Application') }}</th><th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">{{ _('Time Used') }}</th><th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">{{ _('Interactions') }}</th></tr></thead><tbody id="app-usage-table-body" class="divide-y divide-gray-200"></tbody></table></div></div></div>
+                <div id="tab-content-timeline" class="hidden"><div id="timeline-chart-container" class="relative min-h-[150px]"><canvas id="admin-activity-timeline-canvas"></canvas><p id="timeline-no-data-message" class="absolute inset-0 flex items-center justify-center text-gray-500">{{ _('Select a single day to view the timeline.') }}</p></div></div>
+                <p id="report-no-data-message" class="text-gray-500 text-center py-6 hidden">{{ _('No data available for the selected criteria.') }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="time-correction-modal" class="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-50 hidden">
+    <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-md"><h3 class="text-xl font-bold text-gray-800 mb-4">{{ _('Correct Time Entry') }}</h3><form id="time-correction-form"><input type="hidden" id="correction-entry-id"><div class="space-y-4"><div><label for="correction-clock-in" class="block text-sm font-medium text-gray-700">{{ _('Clock In Time (Berlin)') }}</label><input type="datetime-local" id="correction-clock-in" class="mt-1 form-input"></div><div><label for="correction-clock-out" class="block text-sm font-medium text-gray-700">{{ _('Clock Out Time (Berlin)') }}</label><input type="datetime-local" id="correction-clock-out" class="mt-1 form-input"></div></div><div class="mt-6 flex justify-end space-x-3"><button type="button" id="cancel-correction-btn" class="btn bg-gray-200 hover:bg-gray-300 text-gray-800">{{ _('Cancel') }}</button><button type="submit" class="btn btn-primary">{{ _('Save Changes') }}</button></div></form></div>
+</div>
+
+<script>
+// --- Chart Instances & Global State ---
+let chartInstances = { historical: null, realtime: null, appUsage: null };
+const REALTIME_REFRESH_INTERVAL_MS = 15000;
+const STATUS_COLORS = { 'Active':'#22c55e', 'On Break':'#f97316', 'Idle':'#ef4444', 'In Meeting':'#4f46e5', 'Default': '#64748b' };
+const formatDecimalHours = (h) => {
+    if (isNaN(h) || h === null) return '00:00';
+    const totalMinutes = Math.floor(h * 60);
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+};
+// --- Utility Functions ---
+const formatDuration = (s) => { s=Math.max(0,s||0); const h=Math.floor(s/3600).toString().padStart(2,'0'),m=Math.floor((s%3600)/60).toString().padStart(2,'0'),sec=Math.floor(s%60).toString().padStart(2,'0'); return `${h}:${m}:${sec}`; };
+const parseISODate = (iso) => iso ? new Date(iso) : null;
+const formatDateTime = (iso) => { 
+    if(!iso || iso === 'Ongoing' || iso === 'null' || iso === 'undefined') return iso; 
+    const d = parseISODate(iso); 
+    return d ? d.toLocaleString('de-DE', { hour12: false, timeZone: 'Europe/Berlin' }) : 'Invalid'; 
+};
+const apiFetch = async (url, options = {}) => { 
+    const r = await fetch(url, options); 
+    if (!r.ok) {
+        const errorData = await r.json().catch(() => ({ message: r.statusText }));
+        throw new Error(errorData.message || `API request failed: ${r.status}`);
+    }
+    if (r.status === 204) return {};
+    const contentType = r.headers.get("content-type");
+    if (contentType && contentType.indexOf("application/json") !== -1) return r.json();
+    return {};
+};
+
+// --- Initialization & Event Listeners ---
+document.addEventListener('DOMContentLoaded', () => {
+    // Keep a single, globally accessible picker instance so other functions can read it.
+    window.reportDatePicker = new Litepicker({
+        element: document.getElementById('report-date-range'),
+        singleMode: false,
+        format: 'YYYY-MM-DD',
+        setup: (pickerInstance) => {
+            pickerInstance.on('selected', (date1, date2) => {
+                fetchAndRenderAllReports();
+            });
+        }
+    });
+
+    // Set initial date to today (both start & end)
+    if (window.reportDatePicker && typeof window.reportDatePicker.setDateRange === 'function') {
+        window.reportDatePicker.setDateRange(new Date(), new Date());
+    }
+    document.getElementById('report-user-select').addEventListener('change', fetchAndRenderAllReports);
+
+    const tabs = document.querySelectorAll('#report-tabs a');
+
+    tabs.forEach(tab => {
+        tab.addEventListener('click', e => {
+            e.preventDefault();
+            tabs.forEach(t => {
+                t.className = 'whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300';
+                document.getElementById(`tab-content-${t.dataset.tab}`).classList.add('hidden');
+            });
+            e.target.className = 'whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm text-indigo-600 border-indigo-500';
+            document.getElementById(`tab-content-${e.target.dataset.tab}`).classList.remove('hidden');
+        });
+    });
+
+    // Modal Functions and Listeners
+    const modal = document.getElementById('time-correction-modal');
+    function openCorrectionModal(entryId, clockInISO, clockOutISO) {
+        document.getElementById('correction-entry-id').value = entryId;
+        const toLocalInputFormat = (iso) => {
+            if (!iso || iso === 'null' || iso === 'undefined') return '';
+            const d = new Date(iso);
+            d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+            return d.toISOString().slice(0, 16);
+        };
+        document.getElementById('correction-clock-in').value = toLocalInputFormat(clockInISO);
+        document.getElementById('correction-clock-out').value = toLocalInputFormat(clockOutISO);
+        modal.classList.remove('hidden');
+    }
+    function closeCorrectionModal() { modal.classList.add('hidden'); }
+
+    document.getElementById('cancel-correction-btn').addEventListener('click', closeCorrectionModal);
+    document.getElementById('manual-clock-out-all-btn').addEventListener('click', async () => {
+        if (!confirm("{{ _('Are you sure you want to clock out ALL currently active users immediately?') }}")) return;
+        try {
+            const result = await apiFetch("{{ url_for('admin.api_manual_clock_out_all') }}", { method: 'POST' });
+            alert(result.message || 'All active users have been clocked out.');
+            refreshRealtimeData(); // Refresh the dashboard to see the changes
+        } catch (error) { 
+            alert("{{ _('Error') }}: " + error.message); 
+        }
+    });
+
+    document.getElementById('time-correction-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const entryId = document.getElementById('correction-entry-id').value;
+        const clockIn = document.getElementById('correction-clock-in').value;
+        const clockOut = document.getElementById('correction-clock-out').value;
+        try {
+            const result = await apiFetch("{{ url_for('admin.api_correct_time_entry') }}", {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ entry_id: entryId, clock_in_time: clockIn || null, clock_out_time: clockOut || null })
+            });
+            if (result.success) {
+                closeCorrectionModal();
+                refreshRealtimeData();
+                fetchAndRenderAllReports();
+            } else { alert('Error: ' + (result.message || 'Could not save changes.')); }
+        } catch (error) { console.error('Error correcting time entry:', error); alert('An unexpected error occurred.'); }
+    });
+
+    // Event Delegation for Inactivity Log
+    const inactivityTableBody = document.getElementById('inactivity-report-tbody');
+    
+    // --- UPDATED: Combined click and change listeners ---
+    inactivityTableBody.addEventListener('click', async (e) => {
+        const editButton = e.target.closest('.js-edit-btn');
+        if (editButton) {
+            openCorrectionModal(editButton.dataset.entryId, editButton.dataset.clockIn, editButton.dataset.clockOut);
+        }
+    });
+    
+    inactivityTableBody.addEventListener('change', async (e) => {
+        // Handle changing Idle/Meeting type
+        const typeSelect = e.target.closest('.js-type-change');
+        if (typeSelect) {
+            try {
+                const result = await apiFetch("{{ url_for('admin.api_update_idle_reason') }}", {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ idle_entry_id: typeSelect.dataset.entryId, new_type: typeSelect.value })
+                });
+                if (result.success) {
+                    refreshRealtimeData();
+                    fetchAndRenderAllReports();
+                } else {
+                    alert('Error: ' + (result.message || 'Could not update entry.'));
+                    fetchAndRenderAllReports(); // Refresh to revert dropdown
+                }
+            } catch (error) { console.error('Error updating idle reason:', error); }
+        }
+
+        // --- NEW: Handle converting Break type ---
+        const convertSelect = e.target.closest('.js-break-convert');
+        if (convertSelect) {
+            const newType = convertSelect.value;
+            if (newType === 'On Break') return; // Do nothing if they re-select the original
+
+            const confirmMsg = newType === 'Active' ? 
+                '{{ _("Are you sure you want to convert this break into ACTIVE time?") }}' :
+                '{{ _("Are you sure you want to convert this break into a productive MEETING?") }}';
+            
+            if (!confirm(confirmMsg)) {
+                convertSelect.value = 'On Break'; // Revert on cancel
+                return;
+            }
+
+            try {
+                const result = await apiFetch("{{ url_for('admin.api_convert_break_to_meeting') }}", {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        break_entry_id: convertSelect.dataset.breakId,
+                        convert_to: newType // Send 'Active' or 'In Meeting'
+                    })
+                });
+                if (result.success) {
+                    refreshRealtimeData();
+                    fetchAndRenderAllReports();
+                } else { 
+                    alert('Error: ' + (result.message || 'Could not convert entry.')); 
+                    fetchAndRenderAllReports(); // Revert
+                }
+            } catch (err) { 
+                console.error('Error converting break:', err); 
+                alert('An unexpected error occurred.'); 
+                fetchAndRenderAllReports(); // Revert
+            }
+        }
+    });
+    // --- END UPDATED LISTENERS ---
+    
+    // Initial data load and start periodic refresh
+    fetchAndRenderAllReports();
+    refreshRealtimeData();
+    setInterval(refreshRealtimeData, REALTIME_REFRESH_INTERVAL_MS);
+});
+
+
+// --- Data Fetching & Rendering ---
+async function refreshRealtimeData() {
+    try {
+        const [sessionsData, timelineData, summaryData] = await Promise.all([
+            apiFetch("{{ url_for('admin.api_active_sessions') }}"),
+            apiFetch("{{ url_for('admin.api_all_active_users_timeline') }}"),
+            apiFetch("{{ url_for('admin.api_daily_activity_summary') }}")
+        ]);
+        renderActiveSessions(sessionsData);
+        renderDailySummary(summaryData);
+        renderGanttChart('realtime', 'realtime-activity-timeline-canvas', timelineData.users, "{{_('No users are actively being tracked today.')}}");
+    } catch (error) { 
+        console.error('Error refreshing dashboard data:', error);
+        renderGanttChart('realtime', 'realtime-activity-timeline-canvas', [], "{{_('Error loading real-time data.')}}");
+    }
+}
+
+// --- Add debounce utility at the top of your script ---
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+// --- Replace the existing fetchAndRenderAllReports function ---
+const fetchAndRenderAllReports = debounce(async function() {
+    const userId = document.getElementById('report-user-select').value;
+    // Try to read dates from the shared Litepicker instance
+    let startDate = null, endDate = null;
+    const picker = window.reportDatePicker;
+
+    if (picker && typeof picker.getStartDate === 'function') {
+        const sd = picker.getStartDate();
+        const ed = picker.getEndDate();
+        // Some Litepicker versions return a date object with .format()
+        startDate = sd ? (sd.format ? sd.format('YYYY-MM-DD') : (sd.toISOString ? sd.toISOString().slice(0, 10) : null)) : null;
+        endDate   = ed ? (ed.format ? ed.format('YYYY-MM-DD') : (ed.toISOString ? ed.toISOString().slice(0, 10) : null)) : null;
+    } else {
+        // Fallback: parse the input element's text for two ISO dates (YYYY-MM-DD)
+        const raw = (document.getElementById('report-date-range').value || '').trim();
+        const matches = raw.match(/\d{4}-\d{2}-\d{2}/g);
+        if (matches && matches.length >= 2) {
+            startDate = matches[0];
+            endDate = matches[1];
+        }
+    }
+
+    if (!startDate || !endDate) {
+        console.log("Date range not selected.");
+        // show no-data UI, keep behaviour consistent
+        document.getElementById('report-no-data-message').classList.remove('hidden');
+        return;
+    }
+
+    const timelineTab = document.querySelector('[data-tab="timeline"]');
+    const reportsContainer = document.getElementById('reports-container'); // optional container
+    if (reportsContainer) reportsContainer.style.opacity = '0.5';
+
+    try {
+        const promises = [
+            fetchAndRenderActivityReport(userId, startDate, endDate),
+            fetchAndRenderInactivityReport(userId, startDate, endDate),
+            fetchAndRenderAppUsageReport(userId, startDate, endDate)
+        ];
+
+        if (startDate === endDate) {
+            timelineTab.style.display = 'inline-block';
+            promises.push(fetchAndRenderHistoricalTimeline(userId, startDate));
+        } else {
+           timelineTab.style.display = 'none';
+        if (chartInstances.historical) { chartInstances.historical.destroy(); chartInstances.historical = null; }
+        document.getElementById('admin-activity-timeline-canvas').classList.add('hidden');
+        document.getElementById('timeline-no-data-message').classList.remove('hidden');
+        }
+
+        const results = await Promise.all(promises);
+        // results is an array of booleans (true => that report had content)
+        const anyHasContent = results.some(Boolean);
+        document.getElementById('report-no-data-message').classList.toggle('hidden', anyHasContent);
+
+    } catch (error) {
+        console.error("Failed to render reports:", error);
+        document.getElementById('report-no-data-message').classList.remove('hidden');
+    } finally {
+        if (reportsContainer) reportsContainer.style.opacity = '1';
+    }
+}, 300); // 300ms debounce delay
+
+
+// --- Component Rendering Functions ---
+function renderDailySummary(data) {
+    const tableBody = document.getElementById('daily-summary-table-body');
+    const noActivityMessage = document.getElementById('no-daily-activity-message');
+    const table = tableBody.closest('table');
+    tableBody.innerHTML = '';
+    const hasActivity = data.length > 0;
+    table.classList.toggle('hidden', !hasActivity);
+    noActivityMessage.classList.toggle('hidden', hasActivity);
+    if (hasActivity) {
+        data.forEach(row => {
+            tableBody.innerHTML += `<tr><td class="py-3 px-4 text-sm font-medium text-gray-900">${row.username}</td><td class="py-3 px-4 text-sm text-gray-600">${formatDateTime(row.first_clock_in)}</td><td class="py-3 px-4 text-sm text-gray-600">${formatDateTime(row.last_clock_out)}</td><td class="py-3 px-4 text-sm font-mono">${formatDuration(row.gross_duration_seconds)}</td><td class="py-3 px-4 text-sm font-mono text-yellow-600">${formatDuration(row.inactive_duration_seconds)}</td><td class="py-3 px-4 text-sm font-bold text-gray-800 font-mono">${formatDuration(row.net_duration_seconds)}</td></tr>`;
+        });
+    }
+}
+
+// --- UPDATED: renderActiveSessions ---
+function renderActiveSessions(data) {
+    document.getElementById('kpi-total-users').textContent = data.total_users || 0;
+    document.getElementById('kpi-users-active').textContent = data.status_counts.Active || 0;
+    // Updated to show 'Idle' count in the 'kpi-users-idle' element
+    document.getElementById('kpi-users-idle').textContent = data.status_counts['Idle'] || 0;
+    document.getElementById('kpi-users-break').textContent = data.status_counts['On Break'] || 0;
+    document.getElementById('kpi-users-inactive').textContent = data.inactive_users_count || 0; // This now uses the new backend logic
+    
+    const tableBody = document.getElementById('active-users-table-body');
+    const noUsersMessage = document.getElementById('no-active-users-message');
+    const table = tableBody.closest('table');
+    tableBody.innerHTML = '';
+    const hasActiveUsers = data.active_sessions.length > 0;
+    table.classList.toggle('hidden', !hasActiveUsers);
+    noUsersMessage.classList.toggle('hidden', hasActiveUsers);
+    if (hasActiveUsers) {
+        data.active_sessions.forEach(s => {
+            const statusClass = { 'Active': 'bg-green-100 text-green-800', 'In Meeting': 'bg-blue-100 text-blue-800', 'On Break': 'bg-yellow-100 text-yellow-800', 'Idle': 'bg-red-100 text-red-800' }[s.status] || 'bg-gray-100 text-gray-800';
+            tableBody.innerHTML += `<tr>
+                <td class="py-3 px-4 text-sm font-medium text-gray-900">${s.username}</td>
+                <td class="py-3 px-4 text-sm text-gray-600">${s.first_clock_in_time}</td>
+                <td class="py-3 px-4 text-sm"><span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${statusClass}">${s.status}</span></td>
+                <td class="py-3 px-4 text-sm text-gray-600">${s.location}</td>
+                <td class="py-3 px-4 text-sm text-gray-500">${s.app_version}</td> <td class="py-3 px-4 text-sm text-gray-600 font-mono">${s.expected_clock_out}</td>
+            </tr>`;
+        });
+    }
+}
+// --- END UPDATED ---
+
+async function fetchAndRenderActivityReport(userId, startDate, endDate) {
+    const tableBody = document.getElementById('report-table-body');
+    const tableContainer = document.getElementById('tab-content-activity').querySelector('table');
+    const noDataMessage = document.getElementById('report-no-data-message');
+
+    tableBody.innerHTML = ''; // Clear existing rows
+    
+    try {
+        const reportData = await apiFetch(`{{ url_for('admin.api_generate_report') }}?user_ids=${userId}&start_date=${startDate}&end_date=${endDate}&granularity=daily`);
+
+        // Check for the "no data" condition
+        if (!reportData || reportData.length === 0) {
+            tableContainer.classList.add('hidden');
+            if (noDataMessage) noDataMessage.classList.remove('hidden');
+            return false;
+        }
+        
+        // Hide "no data" and show table
+        if (noDataMessage) noDataMessage.classList.add('hidden');
+        tableContainer.classList.remove('hidden');
+        
+        // Use a Set to track unique entries to prevent duplicates
+        const uniqueEntries = new Set();
+        
+        reportData.forEach(row => {
+            // Create a unique key for each entry to avoid duplicates
+            const entryKey = `${row.Datum}-${row.Benutzername}`;
+            
+            // Only add if this entry hasn't been processed yet
+            if (!uniqueEntries.has(entryKey)) {
+                uniqueEntries.add(entryKey);
+                
+                tableBody.innerHTML += `<tr>
+                    <td class="py-3 px-4 text-sm">${row.Datum}</td>
+                    <td class="py-3 px-4 text-sm font-medium text-gray-900">${row.Benutzername}</td>
+                    <td class="py-3 px-4 text-sm text-gray-500">${row.ErsterLogin || 'N/A'}</td>
+                    <td class="py-3 px-4 text-sm text-gray-500">${row.LetzterLogout || 'N/A'}</td>
+                    <td class="py-3 px-4 text-sm font-mono">${formatDecimalHours(row.NettoStunden)}</td>
+                    <td class="py-3 px-4 text-sm font-mono">${formatDuration(row.GesamtPause || 0)}</td>
+                    <td class="py-3 px-4 text-sm font-mono">${formatDuration(row.GesamtLeerlauf || 0)}</td>
+                </tr>`;
+            }
+        });
+        
+        return true;
+
+    } catch (error) { 
+        console.error('Error fetching activity report:', error); 
+        tableContainer.classList.add('hidden');
+        if (noDataMessage) {
+             noDataMessage.textContent = `Error loading report: ${error.message}. Check console for details.`;
+             noDataMessage.classList.remove('hidden');
+        }
+        return false; 
+    }
+}
+
+async function fetchAndRenderInactivityReport(userId, startDate, endDate) {
+    const tableBody = document.getElementById('inactivity-report-tbody');
+    tableBody.innerHTML = '';
+    try {
+        const reportData = await apiFetch(`{{ url_for('admin.api_inactivity_report') }}?user_ids=${userId}&start_date=${startDate}&end_date=${endDate}`);
+        if (reportData.length > 0) {
+            reportData.forEach(row => {
+                const typeClass = { 'In Meeting': 'text-blue-600', 'Idle': 'text-red-600', 'On Break': 'text-yellow-600' }[row.type] || '';
+                let typeCellContent = '';
+                
+                // We combine the action logic into the Type Dropdown
+                if (row.type === 'Idle' || row.type === 'In Meeting') {
+                    // Dropdown for Idle/Meeting entries
+                    typeCellContent = `<select class="form-select text-xs p-1 js-type-change border-gray-300 rounded shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50" data-entry-id="${row.specific_entry_id}">
+                        <option value="Active">{{_('Active')}}</option>
+                        <option value="Idle" ${row.type === 'Idle' ? 'selected' : ''}>{{_('Idle')}}</option>
+                        <option value="In Meeting" ${row.type === 'In Meeting' ? 'selected' : ''}>{{_('In Meeting')}}</option>
+                    </select>`;
+                } else if (row.type === 'On Break') {
+                    // Dropdown for Break entries
+                    typeCellContent = `<select class="form-select text-xs p-1 js-break-convert border-gray-300 rounded shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50" data-break-id="${row.specific_entry_id}">
+                        <option value="On Break" selected>{{_('On Break')}}</option>
+                        <option value="In Meeting">{{_('Convert to Meeting')}}</option>
+                        <option value="Active">{{_('Convert to Active')}}</option>
+                    </select>`;
+                } else {
+                    // Fallback for any other types
+                    typeCellContent = `<span class="font-semibold ${typeClass}">${row.translated_type}</span>`;
+                }
+
+                // REMOVED: The last <td> for actions
+                tableBody.innerHTML += `<tr>
+                    <td class="py-3 px-4 text-sm font-medium text-gray-900">${row.username}</td>
+                    <td class="py-3 px-4 text-sm">${typeCellContent}</td>
+                    <td class="py-3 px-4 text-sm text-gray-600">${formatDateTime(row.start_time)}</td>
+                    <td class="py-3 px-4 text-sm font-mono">${formatDuration(row.duration_seconds)}</td>
+                    <td class="py-3 px-4 text-sm text-gray-500 italic">${row.notes || ''}</td>
+                </tr>`;
+            });
+            return true;
+        }
+        return false;
+    } catch (error) { console.error('Error fetching inactivity report:', error); return false; }
+}
+
+async function fetchAndRenderAppUsageReport(userId, startDate, endDate) {
+    const tableBody = document.getElementById('app-usage-table-body');
+    const chartCanvas = document.getElementById('app-usage-pie-chart');
+    if (chartInstances.appUsage) { chartInstances.appUsage.destroy(); chartInstances.appUsage = null; }
+    tableBody.innerHTML = '';
+    try {
+        const reportData = await apiFetch(`{{ url_for('admin.api_application_usage_report') }}?user_ids=${userId}&start_date=${startDate}&end_date=${endDate}`);
+        if (reportData.length > 0) {
+            reportData.forEach(row => { tableBody.innerHTML += `<tr><td class="py-3 px-4 text-sm">${row.application_name}</td><td class="py-3 px-4 text-sm font-mono">${formatDuration(row.total_duration_seconds)}</td><td class="py-3 px-4 text-sm">${row.interaction_count}</td></tr>`; });
+            const topData = reportData.slice(0, 7), otherDuration = reportData.slice(7).reduce((a, r) => a + r.total_duration_seconds, 0);
+            const chartLabels = topData.map(d => d.application_name), chartValues = topData.map(d => d.total_duration_seconds);
+            if (otherDuration > 0) { chartLabels.push('Other'); chartValues.push(otherDuration); }
+            chartInstances.appUsage = new Chart(chartCanvas, { type: 'doughnut', data: { labels: chartLabels, datasets: [{ data: chartValues, backgroundColor: ['#6d28d9', '#4f46e5', '#7c3aed', '#a78bfa', '#c4b5fd', '#ddd6fe', '#ede9fe', '#9ca3af'] }] }, options: { responsive: true, plugins: { legend: { position: 'right' }, tooltip: { callbacks: { label: c => `${c.label}: ${formatDuration(c.raw)}` } } } } });
+            return true;
+        } return false;
+    } catch (error) { console.error('Error fetching app usage report:', error); return false; }
+}
+async function fetchAndRenderHistoricalTimeline(userId, date) {
+    try {
+        const url = `/admin/api/historical_timeline?user_ids=${encodeURIComponent(userId)}&date=${encodeURIComponent(date)}`;
+        const response = await fetch(url);
+        if (!response.ok) throw new Error("HTTP " + response.status);
+        const data = await response.json();
+
+        const users = data.users || [];   // <-- FIX: extract the array
+
+        if (users.length === 0) {
+            console.log("Timeline: no data returned for", userId, date);
+            document.getElementById('timeline-no-data-message').classList.remove('hidden');
+            return false;
+        }
+
+        renderGanttChart('historical', 'admin-activity-timeline-canvas', users, 'No data available for the selected criteria.');
+        return true;
+    } catch (err) {
+        console.error("Failed to fetch timeline:", err);
+        document.getElementById('timeline-no-data-message').classList.remove('hidden');
+        return false;
+    }
+}
+function renderGanttChart(instanceKey, canvasId, usersData, noDataMessage) {
+    const canvas = document.getElementById(canvasId);
+    const messageEl = canvas.nextElementSibling;
+    const container = canvas.parentElement;
+
+    if (!usersData || usersData.length === 0) {
+        if (chartInstances[instanceKey]) { 
+            chartInstances[instanceKey].destroy(); 
+            chartInstances[instanceKey] = null; 
+        }
+        canvas.classList.add('hidden');
+        messageEl.textContent = noDataMessage;
+        messageEl.classList.remove('hidden');
+        return;
+    }
+
+    // ... (chart data processing remains the same) ...
+    let reportDateStr;
+    if (instanceKey === 'historical' && window.reportDatePicker) {
+        const sd = window.reportDatePicker.getStartDate();
+        reportDateStr = sd ? (sd.format ? sd.format('YYYY-MM-DD') : sd.toISOString().slice(0,10)) : new Date().toISOString().slice(0,10);
+    } else {
+        reportDateStr = new Date().toISOString().split('T')[0];
+    }
+
+    const startOfDay = new Date(`${reportDateStr}T00:00:00.000Z`);
+    const userLabels = usersData.map(u => u.username).sort();
+    const chartPoints = [], backgroundColors = [];
+    let minTime = 24 * 3600, maxTime = 0;
+
+    usersData.forEach(ud => {
+        ud.segments?.forEach(seg => {
+            const startTime = new Date(seg.start_time);
+            const endTime = seg.end_time ? new Date(seg.end_time) : new Date();
+            const startSeconds = (startTime.getTime() - startOfDay.getTime()) / 1000;
+            const endSeconds = (endTime.getTime() - startOfDay.getTime()) / 1000;
+            minTime = Math.min(minTime, startSeconds);
+            maxTime = Math.max(maxTime, endSeconds);
+
+            chartPoints.push({ x: [startSeconds, endSeconds], y: ud.username, label: seg.status });
+            backgroundColors.push(STATUS_COLORS[seg.status] || STATUS_COLORS['Default']);
+        });
+    });
+
+    const scaleMin = Math.floor(minTime / 3600) * 3600;
+    const scaleMax = Math.ceil(maxTime / 3600) * 3600;
+    container.style.minHeight = `${Math.max(150, 80 + (usersData.length * 40))}px`;
+    // ... (end of chart data processing) ...
+
+    const chartInstance = chartInstances[instanceKey];
+    if (chartInstance) {
+        // --- FIX: Show canvas and hide message on update ---
+        messageEl.classList.add('hidden');
+        canvas.classList.remove('hidden');
+        // --- END FIX ---
+        chartInstance.data.labels = userLabels;
+        chartInstance.data.datasets[0].data = chartPoints;
+        chartInstance.data.datasets[0].backgroundColor = backgroundColors;
+        chartInstance.options.scales.x.min = scaleMin;
+        chartInstance.options.scales.x.max = scaleMax;
+        chartInstance.update('none');
+        return;
+    }
+
+    messageEl.classList.add('hidden');
+    canvas.classList.remove('hidden');
+    chartInstances[instanceKey] = new Chart(canvas, {
+        type: 'bar',
+        data: { 
+            labels: userLabels, 
+            datasets: [{ 
+                data: chartPoints, 
+                backgroundColor: backgroundColors, 
+                borderWidth: 1, 
+                barPercentage: 0.8, 
+                categoryPercentage: 0.9, 
+                borderColor: '#f9fafb' 
+            }] 
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: { duration: 0 },
+            plugins: { 
+                legend: { display: false }, 
+                tooltip: { 
+                    callbacks: { 
+                        label: function(context) {
+                            const raw = context.raw;
+                            const duration = formatDuration(raw.x[1] - raw.x[0]);
+                            const timeOpts = { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit', second: '2-digit' };
+                            
+                            const startTime = new Date(startOfDay.getTime() + raw.x[0] * 1000).toLocaleTimeString('de-DE', timeOpts);
+                            const endTime = new Date(startOfDay.getTime() + raw.x[1] * 1000).toLocaleTimeString('de-DE', timeOpts);
+                            
+                            return `${raw.label}: ${duration} (${startTime} - ${endTime})`;
+                        }
+                    } 
+                } 
+            },
+            scales: {
+                y: { stacked: true, ticks: { color: '#4b5563' } },
+                x: { 
+                    min: scaleMin, 
+                    max: scaleMax, 
+                    ticks: { 
+                        stepSize: 3600, 
+                        color: '#6b7280',
+                        callback: function(val) {
+                            const utcDate = new Date(startOfDay.getTime() + val * 1000);
+                            return utcDate.toLocaleTimeString('de-DE', {
+                                timeZone: 'Europe/Berlin',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                            });
+                        }
+                    } 
+                }
+            }
+        }
+    });
+}
+</script>
+{% endblock %}

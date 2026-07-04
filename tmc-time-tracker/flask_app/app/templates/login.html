@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="flex justify-center items-center h-full min-h-screen bg-gray-100 py-12 px-4 sm:px-6 lg:px-8">
+    <div class="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
+        <h2 class="text-3xl font-bold text-center text-gray-800 mb-6">{{ _('Sign In') }}</h2>
+
+        {# Flash messages #}
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="mb-4">
+                    {% for category, message in messages %}
+                        <div class="bg-{{ 'red' if category == 'danger' else 'green' if category == 'success' else 'blue' }}-100 border border-{{ 'red' if category == 'danger' else 'green' if category == 'success' else 'blue' }}-400 text-{{ 'red' if category == 'danger' else 'green' if category == 'success' else 'blue' }}-700 px-4 py-3 rounded relative" role="alert">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <div class="mt-6 text-center">
+            <a href="{{ url_for('microsoft_login') }}" class="w-full inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-blue-500 hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-300 ease-in-out transform hover:scale-105">
+                <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M10 0C4.477 0 0 4.477 0 10s4.477 10 10 10 10-4.477 10-10S15.523 0 10 0zm-.88 15.31l-4.78-4.78 1.41-1.41 3.37 3.37 6.75-6.75 1.41 1.41-8.16 8.16z"/>
+                </svg>
+                {{ _('Sign in with Microsoft') }}
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

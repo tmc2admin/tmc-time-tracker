@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="flex flex-col items-center justify-center min-h-[calc(100vh-16rem)] text-center bg-white p-8 rounded-lg shadow-lg">
+    <h1 class="text-5xl font-extrabold text-gray-900 mb-6 animate-fade-in-down">{{ _('Welcome to TMC - Time Tracker') }}</h1>
+    <p class="text-xl text-gray-700 mb-8 max-w-2xl leading-relaxed animate-fade-in-up">
+        {{ _('Your simple and efficient solution for work time tracking. TM-Connect employees can easily clock in and out, and administrators have full control over company settings and comprehensive reports.') }}
+    </p>
+    <div class="space-x-4">
+        <a href="{{ url_for('auth.login') }}" 
+           class="w-full inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-blue-500 hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-300 ease-in-out transform hover:scale-105">
+            <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                <path d="M10 0C4.477 0 0 4.477 0 10s4.477 10 10 10 10-4.477 10-10S15.523 0 10 0zm-.88 15.31l-4.78-4.78 1.41-1.41 3.37 3.37 6.75-6.75 1.41 1.41-8.16 8.16z"/>
+            </svg>
+            {{ _('Login') }}
+        </a>
+    </div>
+</div>
+
+<style>
+    @keyframes fadeInDown {
+        from { opacity: 0; transform: translateY(-20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeInUp {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-in-down {
+        animation: fadeInDown 0.8s ease-out forwards;
+    }
+    .animate-fade-in-up {
+        animation: fadeInUp 0.8s ease-out forwards 0.2s; /* Slight delay */
+    }
+</style>
+{% endblock %}

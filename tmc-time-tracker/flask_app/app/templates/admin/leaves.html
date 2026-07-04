@@ -1,0 +1,288 @@
+{% extends "base.html" %}
+
+{% block content %}
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/locales/de.js"></script>
+
+<script src="//unpkg.com/alpinejs" defer></script>
+
+<div class="space-y-8 max-w-full bg-gray-50/50 p-6 rounded-3xl">
+
+    <div class="flex flex-col md:flex-row md:justify-between md:items-center border-b border-gray-200 pb-6 gap-4">
+        <div>
+            <h2 class="text-3xl font-extrabold text-gray-900 tracking-tight">{{ _('Leave Management') }}</h2>
+            <p class="text-gray-500 mt-2 text-sm">{{ _('Manage employee time-off requests and view team availability.') }}</p>
+        </div>
+        </div>
+
+    {% set pending_requests = leave_requests|selectattr('status','equalto','Pending')|list %}
+    {% if pending_requests|length > 0 %}
+    <div class="bg-white rounded-2xl shadow-sm border-l-4 border-yellow-400 overflow-hidden ring-1 ring-black/5">
+        <div class="p-5 border-b border-gray-100 bg-yellow-50/30 flex justify-between items-center">
+            <h3 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+                <svg class="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                {{ _('Pending Requests') }}
+                <span class="bg-yellow-100 text-yellow-800 text-xs font-bold px-2 py-0.5 rounded-full">{{ pending_requests|length }}</span>
+            </h3>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ _('Employee') }}</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ _('Duration') }}</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ _('Reason') }}</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ _('Submitted') }}</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{{ _('Actions') }}</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for req in pending_requests %}
+                    <tr class="hover:bg-gray-50 transition duration-150 ease-in-out">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0 h-9 w-9 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-sm">
+                                    {{ req.user.username[0]|upper }}
+                                </div>
+                                <div class="ml-4">
+                                    <div class="text-sm font-medium text-gray-900">{{ req.user.username }}</div>
+                                    <div class="text-xs text-gray-500">{{ req.user.email }}</div>
+                                </div>
+                            </div>
+                        </td>
+
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-900 font-medium">{{ req.start_date.strftime('%d.%m') }} - {{ req.end_date.strftime('%d.%m.%Y') }}</div>
+                            <div class="text-xs text-gray-500 mt-0.5">
+                                {{ req.duration_days }} {{ _('days') }}
+                            </div>
+                        </td>
+
+                        <td class="px-6 py-4">
+                            <div class="text-sm text-gray-600 max-w-xs truncate" title="{{ req.reason }}">
+                                {{ req.reason or _('No reason provided') }}
+                            </div>
+                        </td>
+
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {{ req.created_at.strftime('%d.%m.%Y') }}
+                        </td>
+
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <form action="{{ url_for('admin.manage_leaves') }}" method="POST" class="inline-flex items-center gap-2">
+                                <input type="hidden" name="request_id" value="{{ req.id }}">
+                                <button type="submit" name="action" value="approve" 
+                                    class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-green-700 bg-green-100 hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition">
+                                    {{ _('Approve') }}
+                                </button>
+                                <button type="submit" name="action" value="reject" 
+                                    class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition">
+                                    {{ _('Reject') }}
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% else %}
+    <div class="bg-white border-2 border-dashed border-gray-200 rounded-2xl p-8 text-center">
+        <div class="mx-auto h-12 w-12 text-gray-300">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        </div>
+        <h3 class="mt-2 text-sm font-medium text-gray-900">{{ _('All caught up!') }}</h3>
+        <p class="mt-1 text-sm text-gray-500">{{ _('There are no pending leave requests at this time.') }}</p>
+    </div>
+    {% endif %}
+
+    <div class="grid grid-cols-1 xl:grid-cols-3 gap-8 items-start">
+
+        <div class="xl:col-span-2 bg-white p-6 rounded-2xl shadow-sm ring-1 ring-black/5">
+            <div class="flex justify-between items-center mb-6">
+                <div>
+                    <h3 class="text-lg font-bold text-gray-800">{{ _('Absence Calendar') }}</h3>
+                    <p class="text-xs text-gray-500">{{ _('Overview of approved leaves and holidays') }}</p>
+                </div>
+                <div class="flex gap-4 text-xs font-medium">
+                    <span class="flex items-center gap-1.5">
+                        <span class="w-2.5 h-2.5 bg-blue-500 rounded-full"></span> {{ _('Leave') }}
+                    </span>
+                    <span class="flex items-center gap-1.5">
+                        <span class="w-2.5 h-2.5 bg-green-500 rounded-full"></span> {{ _('Holiday') }}
+                    </span>
+                </div>
+            </div>
+            
+            <div id="calendar" class="min-h-[600px] font-sans text-sm"></div>
+        </div>
+
+        <div class="xl:col-span-1 bg-white flex flex-col h-[710px] rounded-2xl shadow-sm ring-1 ring-black/5 overflow-hidden">
+            <div class="p-5 border-b border-gray-100 bg-gray-50/50">
+                <h3 class="text-lg font-bold text-gray-800">{{ _('Leave History') }}</h3>
+                <p class="text-xs text-gray-500">{{ _('By Employee') }}</p>
+            </div>
+
+            <div class="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+                {% for grouper, list in leave_requests|groupby('user.username') %}
+                <div class="border border-gray-200 rounded-xl overflow-hidden" x-data="{ open: false }">
+                    <button @click="open = !open" class="w-full flex justify-between items-center bg-white p-3.5 hover:bg-gray-50 transition duration-150 focus:outline-none">
+                        <div class="flex items-center gap-3">
+                            <div class="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-600">
+                                {{ grouper[0]|upper }}
+                            </div>
+                            <div class="text-left">
+                                <span class="block text-sm font-semibold text-gray-800 leading-tight">{{ grouper }}</span>
+                                <span class="text-[10px] text-gray-500 uppercase tracking-wider font-medium">
+                                    {{ list|selectattr('status','equalto','Approved')|list|length }} {{ _('Approved') }}
+                                </span>
+                            </div>
+                        </div>
+                        <svg :class="{'rotate-180 text-gray-600': open, 'text-gray-400': !open}" class="w-5 h-5 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                    </button>
+
+                    <div x-show="open" 
+                         x-collapse
+                         class="bg-gray-50 border-t border-gray-100">
+                        <ul class="divide-y divide-gray-100">
+                            {% for item in list %}
+                            <li class="p-3 hover:bg-gray-100 transition duration-150">
+                                <div class="flex justify-between items-start">
+                                    <div class="text-sm font-medium text-gray-700">
+                                        {{ item.start_date.strftime('%d.%m') }} - {{ item.end_date.strftime('%d.%m.%y') }}
+                                    </div>
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium
+                                        {% if item.status == 'Approved' %}bg-green-100 text-green-800
+                                        {% elif item.status == 'Rejected' %}bg-red-100 text-red-800
+                                        {% else %}bg-yellow-100 text-yellow-800{% endif %}">
+                                        {{ item.status }}
+                                    </span>
+                                </div>
+                                {% if item.reason %}
+                                <p class="text-xs text-gray-500 mt-1 italic line-clamp-1" title="{{ item.reason }}">{{ item.reason }}</p>
+                                {% endif %}
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+                {% else %}
+                <div class="text-center py-10 text-gray-400">
+                    <p class="text-sm">{{ _('No leave history available.') }}</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const calendarEl = document.getElementById('calendar');
+    
+    // Only init if element exists
+    if (!calendarEl) return;
+
+    // --- HELPER: ADD DAYS TO DATE STRING ---
+    // This allows us to handle exclusive end dates in JS without Python timedelta dependency
+    function addDays(dateStr, days) {
+        const result = new Date(dateStr);
+        result.setDate(result.getDate() + days);
+        return result.toISOString().split('T')[0];
+    }
+
+    const calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'dayGridMonth',
+        locale: 'de',
+        height: '100%',
+        firstDay: 1, // Start week on Monday
+        headerToolbar: {
+            left: 'prev,next today',
+            center: 'title',
+            right: 'dayGridMonth,listWeek'
+        },
+        buttonText: {
+            today: '{{ _("Today") }}',
+            month: '{{ _("Month") }}',
+            week: '{{ _("Week") }}',
+            day: '{{ _("Day") }}',
+            list: '{{ _("List") }}'
+        },
+        dayMaxEvents: 2, // Show "more" link if > 2 events
+        moreLinkClick: 'popover',
+        
+        // --- DATA INJECTION USING TOJSON FOR SAFETY ---
+        events: [
+            // 1. User Leaves
+            {% for req in leave_requests if req.status == 'Approved' %}
+            {
+                title: {{ req.user.username | tojson }},
+                start: '{{ req.start_date }}',
+                // Calculate exclusive end date in JS to be safe
+                end: addDays('{{ req.end_date }}', 1),
+                color: '#3B82F6', // Blue-500
+                textColor: '#ffffff',
+                allDay: true,
+                extendedProps: { 
+                    reason: {{ req.reason | default('', true) | tojson }},
+                    type: 'leave'
+                }
+            },
+            {% endfor %}
+
+            // 2. Holidays (Background & Text)
+            {% for holiday in upcoming_holidays %}
+            {
+                title: {{ holiday.name | tojson }},
+                start: '{{ holiday.date }}',
+                color: '#ecfdf5', // Green-50
+                display: 'background',
+                allDay: true
+            },
+            {
+                title: {{ holiday.name | tojson }},
+                start: '{{ holiday.date }}',
+                color: 'transparent',
+                textColor: '#047857', // Green-700
+                className: 'font-bold text-center holiday-text-event',
+                allDay: true
+            },
+            {% endfor %}
+        ],
+        
+        eventDidMount: function(info) {
+            // Add tooltip for reasons
+            if (info.event.extendedProps.reason) {
+                info.el.setAttribute('title', info.event.extendedProps.reason);
+            }
+            // Add styling cursor
+            info.el.style.cursor = 'default';
+        }
+    });
+
+    calendar.render();
+});
+</script>
+
+<style>
+/* Custom Scrollbar for Sidebar */
+.custom-scrollbar::-webkit-scrollbar { width: 5px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 10px; }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+
+/* Holiday Text adjustments */
+.holiday-text-event .fc-event-title {
+    white-space: normal;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 0.75rem;
+    line-height: 1.1;
+}
+</style>
+
+{% endblock %}

@@ -1,0 +1,35 @@
+# Virtual environments
+.venv/
+env/
+venv/
+.python_packages/
+*.env
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Flask migrations (recreated dynamically)
+migrations/
+
+# Node / Electron files (not needed for web app)
+../electron_app/
+../electron_app/node_modules/
+../electron_app/dist/
+*.exe
+*.dmg
+*.app
+*.zip
+*.tar.gz
+
+# Git & temp files
+.tmctmp/
+.git/
+.gitignore
+*.log
+
+# Docs / metadata
+README.md
+*.md
+tests/

@@ -1,0 +1,28 @@
+# Virtual environments
+.venv/
+/web_ui/.env
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# environments
+.env
+**/.env
+*.pfx
+tmc-time-tracker/electron_app/node_modules/
+tmc-time-tracker/flask_app/migrations/
+tmc-time-tracker/electron_app/dist/
+*.exe
+*.dmg
+*.app
+*.zip
+*.tar.gz
+
+# Git metadata
+.tmctmp/
+.git/
+
+# Python packages installed for deployment
+tmc-time-tracker/flask_app/.python_packages/

@@ -1,0 +1,235 @@
+{% extends "base.html" %}
+
+{% block content %}
+<head>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@2.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/litepicker/dist/litepicker.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/litepicker/dist/css/litepicker.css"/>
+    
+    <style>
+        .kpi-card { transition: all 0.3s ease; }
+        .kpi-card:hover { transform: translateY(-5px); box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.1); }
+        .custom-select { 
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%239CA3AF' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3e%3cpath d='M7 7l3-3 3 3m0 6l-3 3-3-3'/%3e%3c/svg%3e"); 
+            background-repeat: no-repeat; background-position: right 0.75rem center; background-size: 1.5em 1.5em; padding-right: 2.5rem; 
+        }
+    </style>
+</head>
+
+<div class="bg-gray-50 min-h-screen p-6 sm:p-8">
+    <div class="max-w-7xl mx-auto">
+        {# --- NEW: Language Selector --- #}
+        <div class="absolute top-4 right-4 flex items-center space-x-3">
+            <a href="{{ url_for('auth.set_language', lang_code='en') }}" title="English" class="opacity-50 hover:opacity-100 transition-opacity {{ 'opacity-100' if current_locale.language == 'en' }}">🇬🇧</a>
+            <a href="{{ url_for('auth.set_language', lang_code='de') }}" title="Deutsch" class="opacity-50 hover:opacity-100 transition-opacity {{ 'opacity-100' if current_locale.language == 'de' }}">🇩🇪</a>
+        </div>
+        
+        <div class="flex justify-center items-center mb-8 relative">
+            <h2 class="text-4xl font-bold text-gray-800 text-center">{{ _('Admin Dashboard') }}</h2>
+            <button id="manual-clock-out-all-btn" class="absolute right-0 btn bg-red-600 hover:bg-red-700 text-white">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd" /></svg>
+                {{ _('Clock-Out All') }}
+            </button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-10">
+            <div class="kpi-card bg-white p-4 rounded-xl shadow-md border-t-4 border-indigo-500"><h3 class="text-base font-semibold text-gray-600">{{ _('Total Users') }}</h3><p class="text-4xl font-bold text-gray-800 mt-2" id="kpi-total-users">0</p></div>
+            <div class="kpi-card bg-white p-4 rounded-xl shadow-md border-t-4 border-green-500"><h3 class="text-base font-semibold text-gray-600">{{ _('Users Active') }}</h3><p class="text-4xl font-bold text-gray-800 mt-2" id="kpi-users-active">0</p></div>
+            <div class="kpi-card bg-white p-4 rounded-xl shadow-md border-t-4 border-red-500"><h3 class="text-base font-semibold text-gray-600">{{ _('In Idle') }}</h3><p class="text-4xl font-bold text-gray-800 mt-2" id="kpi-users-idle">0</p></div>
+            <div class="kpi-card bg-white p-4 rounded-xl shadow-md border-t-4 border-orange-500"><h3 class="text-base font-semibold text-gray-600">{{ _('On Break') }}</h3><p class="text-4xl font-bold text-gray-800 mt-2" id="kpi-users-break">0</p></div>
+            <div class="kpi-card bg-white p-4 rounded-xl shadow-md border-t-4 border-slate-500"><h3 class="text-base font-semibold text-gray-600">{{ _("Users Inactive") }}</h3><p class="text-4xl font-bold text-gray-800 mt-2" id="kpi-users-inactive">0</p></div>
+        </div>
+
+        <div class="bg-white p-6 rounded-xl shadow-md mb-10">
+            <h3 class="text-2xl font-bold text-gray-800 mb-4">{{ _('Currently Clocked-in Users') }}</h3>
+            <div class="overflow-x-auto">
+                <table class="min-w-full hidden">
+                    <thead class="bg-gray-100">
+                        <tr>
+                            <th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">{{ _('Username') }}</th>
+                            <th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">{{ _('Clock-In') }}</th>
+                            <th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">{{ _('Status') }}</th>
+                            <th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">{{ _('Location') }}</th>
+                            <th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">{{ _('App Version') }}</th>
+                            <th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">{{ _('Expected Clock Out') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody id="active-users-table-body" class="divide-y divide-gray-200"></tbody>
+                </table>
+                <p class="text-gray-500 text-center py-6" id="no-active-users-message">{{ _('No users are currently clocked in.') }}</p>
+            </div>
+        </div>
+        
+        <div class="bg-white p-6 rounded-xl shadow-md mb-10">
+            <h3 class="text-2xl font-bold text-gray-800 mb-4">{{ _("Today's Activity Summary") }}</h3>
+            <div class="overflow-x-auto">
+                <table class="min-w-full hidden">
+                    <thead class="bg-gray-100">
+                        <tr>
+                            <th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">{{ _('Username') }}</th>
+                            <th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">{{ _('Clock-In') }}</th>
+                            <th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">{{ _('Clock-Out') }}</th>
+                            <th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">{{ _('Gross Duration') }}</th>
+                            <th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">{{ _('Inactive Time') }}</th>
+                            <th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">{{ _('Net Worked') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody id="daily-summary-table-body" class="divide-y divide-gray-200"></tbody>
+                </table>
+                <p class="text-gray-500 text-center py-6" id="no-daily-activity-message">{{ _('No user activity recorded today.') }}</p>
+            </div>
+        </div>
+        
+        <div class="bg-white p-6 rounded-xl shadow-md mb-10">
+            <h3 class="text-2xl font-bold text-gray-800 mb-4">{{ _('Real-Time Activity (Today)') }}</h3>
+            <div id="realtime-timeline-chart-container" class="relative min-h-[250px]">
+                <canvas id="realtime-activity-timeline-canvas"></canvas>
+                <p id="realtime-timeline-message" class="absolute inset-0 flex items-center justify-center text-gray-500">{{ _('Loading real-time data...') }}</p>
+            </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-xl shadow-md mb-10">
+            <h3 class="text-2xl font-bold text-gray-800 mb-4 border-b pb-4">{{ _('Historical Reports') }}</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 items-end">
+                <div>
+                    <label for="report-user-select" class="block text-sm font-medium text-gray-700">{{ _('User') }}</label>
+                    <select id="report-user-select" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 custom-select">
+                        {% for user in users_for_filter %}
+                        <option value="{{ user.id }}">{{ user.username }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="md:col-span-2">
+                    <label for="report-date-range" class="block text-sm font-medium text-gray-700">{{ _('Date Range') }}</label>
+                    <input type="text" id="report-date-range" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
+            </div>
+            <div class="border-b border-gray-200">
+                <nav id="report-tabs" class="-mb-px flex space-x-6">
+                    <a href="#" data-tab="activity" class="whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm text-indigo-600 border-indigo-500">{{ _('Activity Report') }}</a>
+                    <a href="#" data-tab="inactivity" class="whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">{{ _('Inactivity Log') }}</a>
+                    <a href="#" data-tab="usage" class="whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">{{ _('App Usage') }}</a>
+                    <a href="#" data-tab="timeline" class="whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">{{ _('Timeline') }}</a>
+                </nav>
+            </div>
+            <div class="mt-6">
+                <div id="tab-content-activity">
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full">
+                            <thead class="bg-gray-100">
+                                <tr>
+                                    <th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">{{ _('Date') }}</th>
+                                    <th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">{{ _('Username') }}</th>
+                                    <th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">{{ _('Clock In') }}</th>
+                                    <th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">{{ _('Clock Out') }}</th>
+                                    <th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">{{ _('Net Hours') }}</th>
+                                    <th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">{{ _('Break') }}</th>
+                                    <th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">{{ _('Idle') }}</th>
+                                </tr>
+                            </thead>
+                            <tbody id="report-table-body" class="divide-y divide-gray-200"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div id="tab-content-inactivity" class="hidden">
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full">
+                            <thead class="bg-gray-100">
+                                <tr>
+                                    <th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">{{ _('Username') }}</th>
+                                    <th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">{{ _('Type') }}</th>
+                                    <th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">{{ _('Start') }}</th>
+                                    <th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">{{ _('Duration') }}</th>
+                                    <th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">{{ _('Reason') }}</th>
+                                </tr>
+                            </thead>
+                            <tbody id="inactivity-report-tbody" class="divide-y divide-gray-200"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div id="tab-content-usage" class="hidden">
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+                        <div class="lg:col-span-1 min-h-[300px]"><canvas id="app-usage-pie-chart"></canvas></div>
+                        <div class="lg:col-span-2 overflow-x-auto">
+                            <table class="min-w-full">
+                                <thead class="bg-gray-100">
+                                    <tr>
+                                        <th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">{{ _('Application') }}</th>
+                                        <th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">{{ _('Time Used') }}</th>
+                                        <th class="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase">{{ _('Interactions') }}</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="app-usage-table-body" class="divide-y divide-gray-200"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div id="tab-content-timeline" class="hidden">
+                    <div id="timeline-chart-container" class="relative min-h-[150px]">
+                        <canvas id="admin-activity-timeline-canvas"></canvas>
+                        <p id="timeline-no-data-message" class="absolute inset-0 flex items-center justify-center text-gray-500">{{ _('Select a single day to view the timeline.') }}</p>
+                    </div>
+                </div>
+                <p id="report-no-data-message" class="text-gray-500 text-center py-6 hidden">{{ _('No data available for the selected criteria.') }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="time-correction-modal" class="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-50 hidden">
+    <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
+        <h3 class="text-xl font-bold text-gray-800 mb-4">{{ _('Correct Time Entry') }}</h3>
+        <form id="time-correction-form">
+            <input type="hidden" id="correction-entry-id">
+            <div class="space-y-4">
+                <div>
+                    <label for="correction-clock-in" class="block text-sm font-medium text-gray-700">{{ _('Clock In Time (Berlin)') }}</label>
+                    <input type="datetime-local" id="correction-clock-in" class="mt-1 form-input">
+                </div>
+                <div>
+                    <label for="correction-clock-out" class="block text-sm font-medium text-gray-700">{{ _('Clock Out Time (Berlin)') }}</label>
+                    <input type="datetime-local" id="correction-clock-out" class="mt-1 form-input">
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end space-x-3">
+                <button type="button" id="cancel-correction-btn" class="btn bg-gray-200 hover:bg-gray-300 text-gray-800">{{ _('Cancel') }}</button>
+                <button type="submit" class="btn btn-primary">{{ _('Save Changes') }}</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/admin_dashboard.js') }}"></script>
+<script>
+    // Pass configuration from Flask to JavaScript
+    window.DashboardConfig = {
+        api: {
+            activeSessions: "{{ url_for('admin.api_active_sessions') }}",
+            activeTimeline: "{{ url_for('admin.api_all_active_users_timeline') }}",
+            dailySummary: "{{ url_for('admin.api_daily_activity_summary') }}",
+            generateReport: "{{ url_for('admin.api_generate_report') }}",
+            inactivityReport: "{{ url_for('admin.api_inactivity_report') }}",
+            usageReport: "{{ url_for('admin.api_application_usage_report') }}",
+            historicalTimeline: "{{ url_for('admin.api_historical_timeline') }}",
+            clockOutAll: "{{ url_for('admin.api_manual_clock_out_all') }}",
+            updateIdle: "{{ url_for('admin.api_update_idle_reason') }}",
+            convertBreak: "{{ url_for('admin.api_convert_break_to_meeting') }}",
+            correctTime: "{{ url_for('admin.api_correct_time_entry') }}"
+        },
+        i18n: {
+            errorLoad: "{{ _('Error loading real-time data.') }}",
+            confirmClockOut: "{{ _('Are you sure you want to clock out ALL currently active users immediately?') }}",
+            confirmConvertActive: "{{ _('Are you sure you want to convert this break into ACTIVE time?') }}",
+            confirmConvertMeeting: "{{ _('Are you sure you want to convert this break into a productive MEETING?') }}",
+            active: "{{ _('Active') }}",
+            idle: "{{ _('Idle') }}",
+            inMeeting: "{{ _('In Meeting') }}",
+            onBreak: "{{ _('On Break') }}",
+            convertMeeting: "{{ _('Convert to Meeting') }}",
+            convertActive: "{{ _('Convert to Active') }}",
+            other: "{{ _('Other') }}"
+        }
+    };
+</script>
+{% endblock %}

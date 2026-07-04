@@ -1,0 +1,358 @@
+{% extends "base.html" %}
+
+{% block content %}
+<head>
+    {# This <head> block is kept for page-specific styles, assuming base.html handles the main metadata #}
+    <style>
+        .form-input {
+            @apply shadow-sm appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-150 ease-in-out;
+        }
+        .form-select {
+            @apply form-input block pr-8;
+        }
+        .form-checkbox {
+            @apply h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500;
+        }
+        .btn {
+            @apply inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition duration-150 ease-in-out;
+        }
+        .btn-primary {
+            @apply bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500;
+        }
+        .btn-secondary {
+            @apply bg-gray-200 text-gray-800 hover:bg-gray-300 focus:ring-gray-500;
+        }
+        .tab-button {
+            @apply whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm;
+        }
+        .tab-button.active {
+            @apply border-blue-500 text-blue-600;
+        }
+        .tab-button:not(.active) {
+            @apply border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300;
+        }
+        .tab-content {
+            @apply py-6;
+        }
+    </style>
+</head>
+
+<div class="min-h-screen flex flex-col items-center py-8">
+    <div class="w-full max-w-6xl bg-white rounded-lg shadow-xl p-8 mb-8">
+
+        <h1 class="text-3xl font-bold text-gray-900 mb-6 text-center">{{ _('Time Reports') }}</h1>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="mb-6">
+                    {% for category, message in messages %}
+                        <div class="flash-message flash-{{ category|replace('error', 'danger') }}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <div class="border-b border-gray-200">
+            {# --- FIX: Use <a> tags for tabs for better semantics and styling consistency --- #}
+            <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+                <a href="#" id="historical-tab-button" class="tab-button active" onclick="openTab(event, 'historicalReports')">{{ _('Historical Reports') }}</a>
+                <a href="#" id="correction-tab-button" class="tab-button" onclick="openTab(event, 'timeCorrection')">{{ _('Time Correction') }}</a>
+            </nav>
+        </div>
+
+        <div id="historicalReports" class="tab-content">
+            {# --- FIX: Added translations to all labels and buttons --- #}
+            <form method="POST" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 p-6 bg-gray-50 rounded-lg shadow-inner">
+                {{ form.hidden_tag() }}
+                <div class="col-span-1">
+                    <label for="{{ form.report_type.id }}" class="block text-sm font-medium text-gray-700 mb-1">{{ _('Report Type') }}</label>
+                    {{ form.report_type(class="form-select") }}
+                </div>
+                <div class="col-span-1">
+                    <label for="{{ form.user.id }}" class="block text-sm font-medium text-gray-700 mb-1">{{ _('User') }}</label>
+                    {{ form.user(class="form-select") }}
+                </div>
+                <div class="col-span-1">
+                    <label for="{{ form.start_date.id }}" class="block text-sm font-medium text-gray-700 mb-1">{{ _('Start Date') }}</label>
+                    {{ form.start_date(class="form-input", type="date") }}
+                </div>
+                <div class="col-span-1">
+                    <label for="{{ form.end_date.id }}" class="block text-sm font-medium text-gray-700 mb-1">{{ _('End Date') }}</label>
+                    {{ form.end_date(class="form-input", type="date") }}
+                </div>
+                <div class="col-span-full flex justify-center mt-4">
+                    <button type="submit" class="btn btn-primary px-8">{{ _('Generate Report') }}</button>
+                </div>
+            </form>
+
+            {% if report_data %}
+                <div class="mt-8 overflow-x-auto rounded-lg shadow-md border border-gray-200">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-100">
+                             <tr>
+                                {% for key in report_data[0].keys() %}
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ key }}</th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            {% for row in report_data %}
+                                <tr>
+                                    {% for value in row.values() %}
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{{ value }}</td>
+                                    {% endfor %}
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                {# --- NEW: Add the Aggregated Summary Table --- #}
+                {% if summary_data %}
+                    <h2 class="text-2xl font-semibold text-gray-800 mt-12 mb-6 text-center">{{ _('Aggregated Summary') }}</h2>
+                    <div class="mt-8 overflow-x-auto rounded-lg shadow-md border border-gray-200">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-100">
+                                <tr>
+                                    {% for key in summary_data[0].keys() %}
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ key }}</th>
+                                    {% endfor %}
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                {% for row in summary_data %}
+                                    <tr>
+                                        {% for value in row.values() %}
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{{ value }}</td>
+                                        {% endfor %}
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% endif %}
+                {# --- END NEW BLOCK --- #}
+
+                <div class="mt-8 flex justify-center">
+                    <a href="{{ url_for('admin.download_report', report_type=report_type, start_date=form.start_date.data, end_date=form.end_date.data, user_id=form.user.data) }}"
+                    class="btn btn-secondary px-8">{{ _('Export as CSV') }}</a>
+                </div>
+            {% elif request.method == 'POST' %}
+                <p class="text-center text-gray-600 mt-8">{{ _('No data found for the selected criteria.') }}</p>
+            {% else %}
+                <p class="text-center text-gray-600 mt-8">{{ _('Select criteria and click "Generate Report" to display data.') }}</p>
+            {% endif %}
+        </div>
+
+        <div id="timeCorrection" class="tab-content" style="display:none;">
+             {# --- FIX: Added translations to all labels and buttons --- #}
+            <div class="p-6 bg-gray-50 rounded-lg shadow-inner">
+                <h3 class="text-xl font-semibold text-gray-800 mb-4">{{ _('Correct User Time Entries') }}</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+                    <div>
+                        <label for="correctionUserSelect" class="block text-sm font-medium text-gray-700 mb-1">{{ _('Select User') }}</label>
+                        <select id="correctionUserSelect" class="form-select"></select>
+                    </div>
+                    <div>
+                        <label for="correctionDateSelect" class="block text-sm font-medium text-gray-700 mb-1">{{ _('Select Date') }}</label>
+                        <input type="date" id="correctionDateSelect" class="form-input">
+                    </div>
+                    <div>
+                        <button onclick="fetchTimeEntries()" class="btn btn-primary w-full">{{ _('Get Entries') }}</button>
+                    </div>
+                </div>
+            </div>
+            <div id="timeEntriesTableContainer" class="mt-8">
+                 <p class="text-center text-gray-600">{{ _('Please select a user and date to display entries.') }}</p>
+            </div>
+        </div>
+
+        <div class="mt-8 text-center">
+            <a href="{{ url_for('admin.dashboard') }}" class="text-blue-600 hover:text-blue-800 font-medium">{{ _('Back to Admin Dashboard') }}</a>
+        </div>
+    </div>
+
+    {# --- MODAL for editing time entries --- #}
+    <div id="editTimeModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000;" class="items-center justify-center">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
+            {# --- FIX: Added translations --- #}
+            <h4 class="text-xl font-bold text-gray-900 mb-4">{{ _('Edit Time Entry') }}</h4>
+            <input type="hidden" id="modalEntryId">
+            <div class="space-y-4">
+                <div>
+                    <label for="modalClockIn" class="block text-sm font-medium text-gray-700 mb-1">{{ _('Clock In (Berlin Time)') }}</label>
+                    <input type="datetime-local" id="modalClockIn" class="form-input">
+                </div>
+                <div>
+                    <label for="modalClockOut" class="block text-sm font-medium text-gray-700 mb-1">{{ _('Clock Out (Berlin Time)') }}</label>
+                    <input type="datetime-local" id="modalClockOut" class="form-input">
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end space-x-3">
+                <button onclick="document.getElementById('editTimeModal').style.display='none'" class="btn btn-secondary">{{ _('Cancel') }}</button>
+                <button onclick="saveTimeCorrection()" class="btn btn-primary">{{ _('Save') }}</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let userEntriesData = [];
+
+        function openTab(event, tabName) {
+            event.preventDefault(); // Prevent default link behavior
+            document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+            document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+            document.getElementById(tabName).style.display = 'block';
+            event.currentTarget.classList.add('active');
+        }
+
+        function convertUTCToBerlinInputString(isoString) {
+            if (!isoString) return '';
+            const date = new Date(isoString);
+            
+            const options = {
+                year: 'numeric', month: '2-digit', day: '2-digit',
+                hour: '2-digit', minute: '2-digit', hour12: false,
+                timeZone: 'Europe/Berlin'
+            };
+            
+            // Use 'sv-SE' (Sweden) locale as it reliably gives YYYY-MM-DD format
+            const formatter = new Intl.DateTimeFormat('sv-SE', options);
+            const parts = formatter.formatToParts(date);
+            
+            const partMap = parts.reduce((acc, part) => {
+                acc[part.type] = part.value;
+                return acc;
+            }, {});
+
+            // Assemble into YYYY-MM-DDTHH:mm format
+            return `${partMap.year}-${partMap.month}-${partMap.day}T${partMap.hour}:${partMap.minute}`;
+        }
+
+        async function fetchTimeEntries() {
+            const userId = document.getElementById('correctionUserSelect').value;
+            const date = document.getElementById('correctionDateSelect').value;
+            if (!date || userId === "0") {
+                alert("{{ _('Please select a user and date.') }}");
+                return;
+            }
+
+            const container = document.getElementById('timeEntriesTableContainer');
+            container.innerHTML = `<p class="text-center text-gray-600">{{ _('Loading entries...') }}</p>`;
+
+            try {
+                const response = await fetch(`/admin/api/daily_user_entries?user_id=${userId}&date=${date}`);
+                if (!response.ok) throw new Error('Network response was not ok.');
+                
+                userEntriesData = await response.json();
+
+                if (!userEntriesData || userEntriesData.length === 0) {
+                    container.innerHTML = `<p class="text-center text-gray-600">{{ _('No entries found for the selected criteria.') }}</p>`;
+                    return;
+                }
+
+                {# --- FIX: Added translations to table headers --- #}
+                let tableHTML = `<div class="overflow-x-auto rounded-lg shadow-md border border-gray-200"><table class="min-w-full divide-y divide-gray-200"><thead class="bg-gray-100"><tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ _('Username') }}</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ _('Clock In (Berlin)') }}</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ _('Clock Out (Berlin)') }}</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ _('Actions') }}</th>
+                    </tr></thead><tbody class="bg-white divide-y divide-gray-200">`;
+                
+                {# --- FIX: Formatter now explicitly uses Berlin timezone --- #}
+                const berlinFormatter = new Intl.DateTimeFormat('de-DE', { dateStyle: 'short', timeStyle: 'medium', timeZone: 'Europe/Berlin' });
+
+                userEntriesData.forEach(entry => {
+                    const clockInBerlin = berlinFormatter.format(new Date(entry.clock_in_time));
+                    const clockOutBerlin = entry.clock_out_time ? berlinFormatter.format(new Date(entry.clock_out_time)) : `<span class="font-semibold text-green-600">{{ _('Ongoing') }}</span>`;
+                    
+                    tableHTML += `<tr>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${entry.username}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${clockInBerlin}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${clockOutBerlin}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm"><button data-entry-id="${entry.id}" class="edit-btn text-blue-600 hover:text-blue-800">{{ _('Edit') }}</button></td>
+                    </tr>`;
+                });
+
+                tableHTML += '</tbody></table></div>';
+                container.innerHTML = tableHTML;
+            } catch (error) {
+                console.error("Fetch error:", error);
+                container.innerHTML = `<p class="text-center text-red-600">{{ _('Error fetching entries.') }}</p>`;
+            }
+        }
+
+        function openEditModal(entryId) {
+            const entry = userEntriesData.find(e => e.id === entryId);
+            if (!entry) return;
+
+            document.getElementById('modalEntryId').value = entry.id;
+            document.getElementById('modalClockIn').value = convertUTCToBerlinInputString(entry.clock_in_time);
+            document.getElementById('modalClockOut').value = convertUTCToBerlinInputString(entry.clock_out_time);
+            document.getElementById('editTimeModal').style.display = 'flex';
+        }
+
+        async function saveTimeCorrection() {
+            const entryId = document.getElementById('modalEntryId').value;
+            const clockIn = document.getElementById('modalClockIn').value;
+            const clockOut = document.getElementById('modalClockOut').value;
+            // --- FIX: More robustly get CSRF token from the main form ---
+            const csrfToken = document.querySelector('#historicalReports form input[name="csrf_token"]')?.value;
+            
+            if (!csrfToken) {
+                alert("{{ _('CSRF Token not found. Please reload the page.') }}");
+                return;
+            }
+            
+            const payload = {
+                entry_id: parseInt(entryId),
+                clock_in_time: clockIn,
+                clock_out_time: clockOut || 'ongoing'
+            };
+
+            try {
+                const response = await fetch("{{ url_for('admin.api_correct_time_entry') }}", {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                if (result.success) {
+                    alert("{{ _('Time entry updated successfully!') }}");
+                    document.getElementById('editTimeModal').style.display = 'none';
+                    fetchTimeEntries();
+                } else {
+                    throw new Error(result.message || 'Unknown error');
+                }
+            } catch (error) {
+                alert("{{ _('Error updating entry: ') }}" + error.message);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('correctionDateSelect').valueAsDate = new Date();
+
+            const mainUserSelect = document.querySelector('select[name="user"]');
+            const correctionUserSelect = document.getElementById('correctionUserSelect');
+            if (mainUserSelect && correctionUserSelect) {
+                correctionUserSelect.innerHTML = mainUserSelect.innerHTML;
+            }
+
+            document.getElementById('timeEntriesTableContainer').addEventListener('click', function(event) {
+                if (event.target && event.target.classList.contains('edit-btn')) {
+                    const entryId = parseInt(event.target.getAttribute('data-entry-id'));
+                    openEditModal(entryId);
+                }
+            });
+            
+            const isPostRequest = {{ request.method == 'POST'|tojson }};
+            if (isPostRequest) {
+                // If the page was loaded via POST, keep the historical reports tab active.
+                openTab({ preventDefault: () => {}, currentTarget: document.getElementById('historical-tab-button') }, 'historicalReports');
+            }
+        });
+    </script>
+</div>
+{% endblock %}

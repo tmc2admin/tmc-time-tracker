@@ -1,0 +1,1530 @@
+# Translations template for PROJECT.
+# Copyright (C) 2026 ORGANIZATION
+# This file is distributed under the same license as the PROJECT project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-02-17 10:18+0100\n"
+"PO-Revision-Date: 2026-02-17 10:20+0100\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: German <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.17.0\n"
+
+#: app/decorators.py:13
+msgid "You do not have permission to access this page."
+msgstr "Sie haben keine Berechtigung, auf diese Seite zuzugreifen."
+
+#: app/decorators.py:27
+msgid "Access denied. Your account is not from an approved domain."
+msgstr "Zugriff verweigert. Ihr Konto gehört nicht zu einer zugelassenen Domäne."
+
+#: app/forms.py:12 app/templates/admin/holidays.html:13
+msgid "Holiday Name"
+msgstr "Name des Feiertags"
+
+#: app/forms.py:13 app/helpers/reporting.py:219 app/helpers/reporting.py:229
+#: app/templates/admin/bkp_dashboard.html:96
+#: app/templates/admin/dashboard.html:96 app/templates/admin/holidays.html:17
+#: app/templates/admin/holidays.html:33 app/templates/admin/overtime.html:16
+#: app/templates/admin/overtime.html:38 app/templates/dashboard.html:100
+#: app/templates/dashboard.html:152 app/templates/dashboard.html:227
+msgid "Date"
+msgstr "Datum"
+
+#: app/forms.py:14 app/templates/admin/holidays.html:21
+msgid "Add Holiday"
+msgstr "Feiertag hinzufügen"
+
+#: app/forms.py:27 app/forms.py:56 app/templates/admin/bkp_dashboard.html:82
+#: app/templates/admin/dashboard.html:82 app/templates/admin/reports.html:74
+msgid "User"
+msgstr "Benutzer"
+
+#: app/forms.py:28 app/forms.py:57 app/forms.py:123
+#: app/templates/admin/provisions.html:194 app/templates/admin/reports.html:78
+msgid "Start Date"
+msgstr "Startdatum"
+
+#: app/forms.py:29 app/forms.py:58 app/forms.py:129
+#: app/templates/admin/provisions.html:198 app/templates/admin/reports.html:82
+msgid "End Date"
+msgstr "Enddatum"
+
+#: app/forms.py:30 app/forms.py:60 app/templates/admin/reports.html:86
+msgid "Generate Report"
+msgstr "Bericht erstellen"
+
+#: app/blueprints/admin.py:47 app/forms.py:34
+msgid "All Users"
+msgstr "Alle Benutzer"
+
+#: app/forms.py:42 app/forms.py:64
+msgid "Default Daily Hours"
+msgstr "Tägliche Arbeitszeit (Standard)"
+
+#: app/forms.py:46 app/forms.py:68
+msgid "Default Working Days"
+msgstr "Arbeitstage (Standard)"
+
+#: app/forms.py:48 app/forms.py:70
+msgid "Monday"
+msgstr "Montag"
+
+#: app/forms.py:48 app/forms.py:70
+msgid "Tuesday"
+msgstr "Dienstag"
+
+#: app/forms.py:48 app/forms.py:70
+msgid "Wednesday"
+msgstr "Mittwoch"
+
+#: app/forms.py:49 app/forms.py:71
+msgid "Thursday"
+msgstr "Donnerstag"
+
+#: app/forms.py:49 app/forms.py:71
+msgid "Friday"
+msgstr "Freitag"
+
+#: app/forms.py:49 app/forms.py:71
+msgid "Saturday"
+msgstr "Samstag"
+
+#: app/forms.py:49 app/forms.py:71
+msgid "Sunday"
+msgstr "Sonntag"
+
+#: app/forms.py:53
+msgid "Update User"
+msgstr "Benutzer aktualisieren"
+
+#: app/forms.py:59
+msgid "Granularity"
+msgstr "Genauigkeit"
+
+#: app/forms.py:77
+msgid "Working Hours Start"
+msgstr "Arbeitszeitbeginn"
+
+#: app/forms.py:82
+msgid "Working Hours End"
+msgstr "Arbeitszeitende"
+
+#: app/forms.py:87
+msgid "Max Idle Time (minutes)"
+msgstr "Max. Inaktivität (Minuten)"
+
+#: app/forms.py:91
+msgid "Idle to Break Transition (minutes)"
+msgstr "Übergang Inaktiv zu Pause (Minuten)"
+
+#: app/forms.py:95
+msgid "Long Break Prompt (minutes)"
+msgstr "Hinweis bei langer Pause (Minuten)"
+
+#: app/forms.py:99
+msgid "Auto Clock-Out on Break (minutes)"
+msgstr "Auto-Logout bei Pause (Minuten)"
+
+#: app/forms.py:103
+msgid "Update Settings"
+msgstr "Einstellungen speichern"
+
+#: app/forms.py:107 app/templates/admin/leaves.html:34
+#: app/templates/admin/provisions.html:44
+#: app/templates/admin/provisions.html:129
+msgid "Employee"
+msgstr "Mitarbeiter"
+
+#: app/forms.py:109
+msgid "Please select an employee."
+msgstr "Bitte wählen Sie einen Mitarbeiter aus."
+
+#: app/forms.py:113 app/templates/admin/provisions.html:175
+msgid "Beschreibung"
+msgstr "Beschreibung"
+
+#: app/forms.py:115
+msgid "Enter description"
+msgstr "Beschreibung eingeben"
+
+#: app/forms.py:118 app/templates/admin/provisions.html:179
+msgid "Zielvereinbarung"
+msgstr "Zielvereinbarung"
+
+#: app/forms.py:135 app/templates/admin/provisions.html:183
+msgid "Grenze Punkte"
+msgstr "Punktegrenze"
+
+#: app/forms.py:137
+msgid "e.g., 18000"
+msgstr "z.B. 18000"
+
+#: app/forms.py:140 app/templates/admin/provisions.html:187
+msgid "Typ"
+msgstr "Typ"
+
+#: app/forms.py:142
+msgid "--- Select Type ---"
+msgstr "--- Typ wählen ---"
+
+#: app/forms.py:143
+msgid "Mindespunktzahl"
+msgstr "Mindestpunktzahl"
+
+#: app/forms.py:144
+msgid "Bonus"
+msgstr "Bonus"
+
+#: app/forms.py:150
+msgid "Provision in %"
+msgstr "Provision in %"
+
+#: app/forms.py:153
+msgid "e.g., 2.50"
+msgstr "z.B. 2.50"
+
+#: app/forms.py:156
+msgid "Provision in €"
+msgstr "Provision in €"
+
+#: app/forms.py:159
+msgid "e.g., 500.00"
+msgstr "z.B. 500.00"
+
+#: app/forms.py:163
+msgid "Save Provision"
+msgstr "Provision speichern"
+
+#: app/forms.py:167
+msgid "--- Select Employee ---"
+msgstr "--- Mitarbeiter wählen ---"
+
+#: app/forms.py:176
+msgid "End date must be after start date."
+msgstr "Das Enddatum muss nach dem Startdatum liegen."
+
+#: app/forms.py:180 app/forms.py:184
+msgid "Please provide either percentage or euro amount, not both."
+msgstr "Bitte geben Sie entweder Prozent oder Euro an, nicht beides."
+
+#: app/blueprints/admin.py:60
+msgid "Company settings updated successfully!"
+msgstr "Firmeneinstellungen erfolgreich aktualisiert!"
+
+#: app/blueprints/admin.py:101
+msgid "No data found to export."
+msgstr "Keine Daten für den Export gefunden."
+
+#: app/blueprints/admin.py:280
+msgid "Holiday added successfully!"
+msgstr "Feiertag erfolgreich hinzugefügt!"
+
+#: app/blueprints/admin.py:284
+msgid "Error adding holiday."
+msgstr "Fehler beim Hinzufügen des Feiertags."
+
+#: app/blueprints/admin.py:293
+msgid "Holiday deleted."
+msgstr "Feiertag gelöscht."
+
+#: app/blueprints/admin.py:308
+msgid "New provision added!"
+msgstr "Neue Provision hinzugefügt!"
+
+#: app/blueprints/admin.py:316
+msgid "Manage Provisions"
+msgstr "Provisionen verwalten"
+
+#: app/blueprints/admin.py:376
+msgid "Leave request updated."
+msgstr "Urlaubsantrag aktualisiert."
+
+#: app/blueprints/admin.py:391
+msgid "Password added."
+msgstr "Passwort hinzugefügt."
+
+#: app/blueprints/admin.py:420
+msgid "Customer saved."
+msgstr "Kunde gespeichert."
+
+#: app/blueprints/api.py:231
+msgid "Your account is temporarily suspended."
+msgstr "Ihr Konto ist vorübergehend gesperrt."
+
+#: app/blueprints/api.py:242
+#, python-format
+msgid "Clock-in is only allowed from %(time)s onwards."
+msgstr "Einstempeln ist erst ab %(time)s erlaubt."
+
+#: app/blueprints/api.py:307
+msgid "Automatic break created between sessions."
+msgstr "Automatische Pause zwischen Sitzungen erstellt."
+
+#: app/blueprints/api.py:361
+msgid "Already clocked out."
+msgstr "Bereits ausgestempelt."
+
+#: app/blueprints/api.py:379 app/services/admin_service.py:197
+msgid "Clock-out"
+msgstr "Ausstempeln"
+
+#: app/blueprints/api.py:403
+msgid "Clocked out successfully!"
+msgstr "Erfolgreich ausgestempelt!"
+
+#: app/blueprints/api.py:409 app/blueprints/api.py:429
+msgid "Not clocked in."
+msgstr "Nicht eingestempelt."
+
+#: app/blueprints/api.py:411
+msgid "Already on a break."
+msgstr "Bereits in der Pause."
+
+#: app/blueprints/api.py:416 app/services/admin_service.py:197
+msgid "Break started"
+msgstr "Pause gestartet"
+
+#: app/blueprints/api.py:421
+msgid "Break started."
+msgstr "Pause gestartet."
+
+#: app/blueprints/api.py:435
+msgid "No active breaks found."
+msgstr "Keine aktiven Pausen gefunden."
+
+#: app/blueprints/api.py:463
+msgid "Break ended."
+msgstr "Pause beendet."
+
+#: app/blueprints/api.py:474
+msgid "Reason submitted."
+msgstr "Grund gesendet."
+
+#: app/blueprints/api.py:480 app/blueprints/api.py:507
+msgid "Not clocked in"
+msgstr "Nicht eingestempelt"
+
+#: app/blueprints/api.py:496
+msgid "Meeting started"
+msgstr "Meeting gestartet"
+
+#: app/blueprints/api.py:510
+msgid "Not in a meeting."
+msgstr "In keinem Meeting."
+
+#: app/blueprints/api.py:521
+msgid "User not clocked in."
+msgstr "Benutzer nicht eingestempelt."
+
+#: app/blueprints/api.py:528
+msgid "Already idle."
+msgstr "Bereits inaktiv."
+
+#: app/blueprints/api.py:715
+msgid "Server Auto Clock-Out"
+msgstr "Automatischer Server-Logout"
+
+#: app/blueprints/api.py:802
+msgid "User not found"
+msgstr "Benutzer nicht gefunden"
+
+#: app/blueprints/api.py:806
+msgid "No active session."
+msgstr "Keine aktive Sitzung."
+
+#: app/blueprints/api.py:927
+msgid "System Idle (No Heartbeat)"
+msgstr "System inaktiv (Kein Heartbeat)"
+
+#: app/blueprints/web.py:28
+msgid "hours"
+msgstr "Stunden"
+
+#: app/blueprints/web.py:28 app/templates/admin/bkp_dashboard.html:541
+#: app/templates/admin/customers.html:71 app/templates/admin/dashboard.html:541
+#: app/templates/dashboard.html:35 app/templates/dashboard.html:289
+msgid "Active"
+msgstr "Aktiv"
+
+#: app/blueprints/web.py:28 app/templates/admin/bkp_dashboard.html:45
+#: app/templates/admin/bkp_dashboard.html:548
+#: app/templates/admin/dashboard.html:45 app/templates/admin/dashboard.html:548
+msgid "On Break"
+msgstr "In Pause"
+
+#: app/blueprints/web.py:29 app/helpers/reporting.py:225
+#: app/templates/admin/bkp_dashboard.html:102
+#: app/templates/admin/bkp_dashboard.html:542
+#: app/templates/admin/dashboard.html:102
+#: app/templates/admin/dashboard.html:542
+msgid "Idle"
+msgstr "Inaktiv"
+
+#: app/blueprints/web.py:29 app/templates/dashboard.html:35
+#: app/templates/dashboard.html:290
+msgid "Offline"
+msgstr "Offline"
+
+#: app/blueprints/web.py:103
+msgid "An internal error occurred."
+msgstr "Ein interner Fehler ist aufgetreten."
+
+#: app/blueprints/web.py:124
+#, python-format
+msgid "Error submitting request: %(error)s"
+msgstr "Fehler beim Senden der Anfrage: %(error)s"
+
+#: app/helpers/reporting.py:16 app/services/admin_service.py:196
+msgid "System Idle"
+msgstr "System inaktiv"
+
+#: app/helpers/reporting.py:17
+msgid "User became active"
+msgstr "Benutzer wurde aktiv"
+
+#: app/helpers/reporting.py:18 app/services/admin_service.py:196
+#: app/templates/admin/bkp_dashboard.html:543
+#: app/templates/admin/dashboard.html:543
+msgid "In Meeting"
+msgstr "Im Meeting"
+
+#: app/helpers/reporting.py:19
+msgid "Paused"
+msgstr "Pausiert"
+
+#: app/helpers/reporting.py:20
+msgid "Not Working"
+msgstr "Nicht arbeitend"
+
+#: app/helpers/reporting.py:21
+msgid "Working"
+msgstr "Arbeitend"
+
+#: app/helpers/reporting.py:180 app/services/admin_service.py:319
+#: app/services/web_service.py:317 app/templates/admin/reports.html:269
+msgid "Ongoing"
+msgstr "Laufend"
+
+#: app/helpers/reporting.py:183 app/services/admin_service.py:322
+msgid "Stale"
+msgstr "Hängengeblieben"
+
+#: app/helpers/reporting.py:220 app/helpers/reporting.py:229
+#: app/helpers/reporting.py:233 app/helpers/reporting.py:248
+#: app/helpers/reporting.py:264 app/templates/admin/bkp_dashboard.html:55
+#: app/templates/admin/bkp_dashboard.html:70
+#: app/templates/admin/bkp_dashboard.html:97
+#: app/templates/admin/bkp_dashboard.html:114
+#: app/templates/admin/dashboard.html:55 app/templates/admin/dashboard.html:70
+#: app/templates/admin/dashboard.html:97 app/templates/admin/dashboard.html:114
+#: app/templates/admin/reports.html:258
+msgid "Username"
+msgstr "Benutzername"
+
+#: app/helpers/reporting.py:221 app/helpers/reporting.py:249
+#: app/templates/admin/bkp_dashboard.html:98
+#: app/templates/admin/dashboard.html:98 app/templates/dashboard.html:101
+msgid "Clock In"
+msgstr "Kommen"
+
+#: app/helpers/reporting.py:222 app/helpers/reporting.py:250
+#: app/templates/admin/bkp_dashboard.html:99
+#: app/templates/admin/dashboard.html:99 app/templates/dashboard.html:102
+msgid "Clock Out"
+msgstr "Gehen"
+
+#: app/helpers/reporting.py:223 app/templates/admin/bkp_dashboard.html:100
+#: app/templates/admin/dashboard.html:100
+msgid "Net Hours"
+msgstr "Netto-Std."
+
+#: app/helpers/reporting.py:224 app/templates/admin/bkp_dashboard.html:101
+#: app/templates/admin/dashboard.html:101 app/templates/dashboard.html:50
+#: app/templates/dashboard.html:105
+msgid "Break"
+msgstr "Pause"
+
+#: app/helpers/reporting.py:234
+msgid "Total Net Worked Hours"
+msgstr "Gesamte Nettoarbeitszeit"
+
+#: app/helpers/reporting.py:235 app/helpers/reporting.py:252
+msgid "Total Break (Hours)"
+msgstr "Gesamtpause (Stunden)"
+
+#: app/helpers/reporting.py:236 app/helpers/reporting.py:253
+msgid "Total Idle (Hours)"
+msgstr "Gesamtinaktivität (Stunden)"
+
+#: app/helpers/reporting.py:251
+msgid "Gross Duration (Hours)"
+msgstr "Bruttodauer (Stunden)"
+
+#: app/helpers/reporting.py:254
+msgid "Net Worked Hours"
+msgstr "Nettoarbeitszeit"
+
+#: app/helpers/reporting.py:255 app/helpers/reporting.py:267
+#: app/templates/admin/bkp_dashboard.html:57
+#: app/templates/admin/customers.html:18 app/templates/admin/dashboard.html:57
+#: app/templates/admin/overtime.html:41 app/templates/admin/passwords.html:92
+#: app/templates/dashboard.html:122 app/templates/dashboard.html:154
+msgid "Status"
+msgstr "Status"
+
+#: app/helpers/reporting.py:265 app/templates/admin/overtime.html:20
+#: app/templates/admin/overtime.html:39 app/templates/dashboard.html:232
+msgid "Start Time"
+msgstr "Startzeit"
+
+#: app/helpers/reporting.py:266 app/templates/admin/overtime.html:24
+#: app/templates/dashboard.html:236
+msgid "End Time"
+msgstr "Endzeit"
+
+#: app/helpers/reporting.py:268
+msgid "Duration (Min)"
+msgstr "Dauer (Min)"
+
+#: app/helpers/reporting.py:269 app/templates/admin/customers.html:19
+msgid "Notes"
+msgstr "Notizen"
+
+#: app/services/admin_service.py:71
+msgid "System Idle (Heartbeat Timeout)"
+msgstr "System inaktiv (Heartbeat Timeout)"
+
+#: app/services/admin_service.py:198
+msgid "Admin manual clock-out"
+msgstr "Manuelles Ausstempeln durch Admin"
+
+#: app/services/web_service.py:288
+msgid "status"
+msgstr "Status"
+
+#: app/services/web_service.py:370
+msgid "Date, Start Time and End Time are required."
+msgstr "Datum, Startzeit und Endzeit sind erforderlich."
+
+#: app/services/web_service.py:377
+msgid "End time must be after start time."
+msgstr "Die Endzeit muss nach der Startzeit liegen."
+
+#: app/services/web_service.py:387
+msgid "This request overlaps with an existing overtime entry."
+msgstr "Diese Anfrage überschneidet sich mit einem bestehenden Überstundeneintrag."
+
+#: app/services/web_service.py:392
+msgid "Overtime request submitted successfully!"
+msgstr "Überstundenantrag erfolgreich gesendet!"
+
+#: app/services/web_service.py:400
+msgid "Please select both start and end dates."
+msgstr "Bitte wählen Sie Start- und Enddatum aus."
+
+#: app/services/web_service.py:405
+msgid "End date cannot be before start date."
+msgstr "Das Enddatum kann nicht vor dem Startdatum liegen."
+
+#: app/services/web_service.py:410
+msgid "Start date cannot be a weekend (Saturday/Sunday)."
+msgstr "Das Startdatum darf kein Wochenende sein."
+
+#: app/services/web_service.py:413
+msgid "End date cannot be a weekend (Saturday/Sunday)."
+msgstr "Das Enddatum darf kein Wochenende sein."
+
+#: app/services/web_service.py:419
+msgid "Leave request submitted successfully."
+msgstr "Urlaubsantrag erfolgreich gesendet."
+
+#: app/templates/base.html:6 app/templates/base.html:55
+msgid "Time Tracker"
+msgstr "Zeiterfassung"
+
+#: app/templates/base.html:40
+msgid "Dashboard"
+msgstr "Dashboard"
+
+#: app/templates/admin/bkp_dashboard.html:34
+#: app/templates/admin/dashboard.html:34 app/templates/base.html:43
+msgid "Admin Dashboard"
+msgstr "Admin-Dashboard"
+
+#: app/templates/admin/leaves.html:14 app/templates/base.html:44
+msgid "Leave Management"
+msgstr "Abwesenheitsverwaltung"
+
+#: app/templates/base.html:45
+msgid "Customers (CRM)"
+msgstr "Kunden (CRM)"
+
+#: app/templates/base.html:46
+msgid "Password Vault"
+msgstr "Passwort-Tresor"
+
+#: app/templates/admin/overtime.html:5 app/templates/base.html:47
+msgid "Overtime Management"
+msgstr "Überstundenverwaltung"
+
+#: app/templates/base.html:48
+msgid "Reports"
+msgstr "Berichte"
+
+#: app/templates/base.html:49
+msgid "Settings"
+msgstr "Einstellungen"
+
+#: app/templates/base.html:50
+msgid "Holidays"
+msgstr "Feiertage"
+
+#: app/templates/base.html:66 app/templates/base.html:113
+msgid "Admin Tools"
+msgstr "Admin-Tools"
+
+#: app/templates/base.html:85 app/templates/base.html:123
+#, python-format
+msgid "Logout (%(username)s)"
+msgstr "Abmelden (%(username)s)"
+
+#: app/templates/base.html:98
+msgid "Toggle navigation"
+msgstr "Navigation umschalten"
+
+#: app/templates/dashboard.html:22
+#, python-format
+msgid "Welcome, %(username)s!"
+msgstr "Willkommen, %(username)s!"
+
+#: app/templates/dashboard.html:23
+msgid "Today is"
+msgstr "Heute ist"
+
+#: app/templates/dashboard.html:32
+msgid "Current Status"
+msgstr "Aktueller Status"
+
+#: app/templates/dashboard.html:41
+msgid "elapsed"
+msgstr "vergangen"
+
+#: app/templates/dashboard.html:46
+msgid "Productive Time"
+msgstr "Produktive Zeit"
+
+#: app/templates/dashboard.html:49 app/templates/dashboard.html:103
+msgid "Gross"
+msgstr "Brutto"
+
+#: app/templates/dashboard.html:55
+msgid "Leave Balance"
+msgstr "Urlaubssaldo"
+
+#: app/templates/dashboard.html:58
+msgid "days remaining"
+msgstr "Tage verbleibend"
+
+#: app/templates/dashboard.html:60
+msgid "days taken used year"
+msgstr "Tage genommen dieses Jahr"
+
+#: app/templates/dashboard.html:64
+msgid "Expected End"
+msgstr "Erwartetes Ende"
+
+#: app/templates/dashboard.html:68
+msgid "Based on 8h shift"
+msgstr "Basierend auf 8h Schicht"
+
+#: app/templates/dashboard.html:79
+msgid "My History"
+msgstr "Mein Verlauf"
+
+#: app/templates/dashboard.html:81
+msgid "Select dates..."
+msgstr "Daten wählen..."
+
+#: app/templates/dashboard.html:88
+msgid "Timesheet"
+msgstr "Stundenzettel"
+
+#: app/templates/dashboard.html:89
+msgid "Leave Requests"
+msgstr "Abwesenheitsanträge"
+
+#: app/templates/dashboard.html:90
+msgid "Overtime"
+msgstr "Überstunden"
+
+#: app/templates/dashboard.html:104
+msgid "Net"
+msgstr "Netto"
+
+#: app/templates/dashboard.html:110
+msgid "No entries found."
+msgstr "Keine Einträge gefunden."
+
+#: app/templates/admin/provisions.html:131 app/templates/dashboard.html:120
+msgid "Dates"
+msgstr "Daten"
+
+#: app/templates/admin/bkp_dashboard.html:118
+#: app/templates/admin/dashboard.html:118 app/templates/admin/leaves.html:36
+#: app/templates/admin/overtime.html:42 app/templates/dashboard.html:121
+#: app/templates/dashboard.html:241 app/templates/dashboard.html:268
+msgid "Reason"
+msgstr "Grund"
+
+#: app/templates/dashboard.html:153
+msgid "Time"
+msgstr "Zeit"
+
+#: app/templates/dashboard.html:185
+msgid "Quick Actions"
+msgstr "Schnellzugriff"
+
+#: app/templates/dashboard.html:189 app/templates/dashboard.html:224
+msgid "Request Overtime"
+msgstr "Überstunden beantragen"
+
+#: app/templates/dashboard.html:193
+msgid "Request Leave"
+msgstr "Urlaub beantragen"
+
+#: app/templates/admin/holidays.html:28 app/templates/dashboard.html:200
+msgid "Upcoming Holidays"
+msgstr "Kommende Feiertage"
+
+#: app/templates/dashboard.html:208
+msgid "No holidays soon."
+msgstr "Keine Feiertage in Kürze."
+
+#: app/templates/admin/bkp_dashboard.html:134
+#: app/templates/admin/customers.html:84 app/templates/admin/dashboard.html:134
+#: app/templates/admin/provisions.html:213 app/templates/admin/reports.html:194
+#: app/templates/dashboard.html:245 app/templates/dashboard.html:272
+msgid "Cancel"
+msgstr "Abbrechen"
+
+#: app/templates/dashboard.html:246 app/templates/dashboard.html:273
+msgid "Submit"
+msgstr "Absenden"
+
+#: app/templates/dashboard.html:255
+msgid "Request Time Off"
+msgstr "Freistellung beantragen"
+
+#: app/templates/admin/bkp_dashboard.html:116
+#: app/templates/admin/dashboard.html:116 app/templates/dashboard.html:259
+msgid "Start"
+msgstr "Start"
+
+#: app/templates/dashboard.html:263
+msgid "End"
+msgstr "Ende"
+
+#: app/templates/dashboard.html:269
+msgid "Vacation, Sick leave..."
+msgstr "Urlaub, Krankmeldung..."
+
+#: app/templates/dashboard.html:291
+msgid "An error occurred."
+msgstr "Ein Fehler ist aufgetreten."
+
+#: app/templates/dashboard.html:292
+msgid "Please fill in all fields."
+msgstr "Bitte alle Felder ausfüllen."
+
+#: app/templates/dashboard.html:293
+msgid "Success!"
+msgstr "Erfolg!"
+
+#: app/templates/index.html:5
+msgid "Welcome to TMC - Time Tracker"
+msgstr "Willkommen bei TMC - Time Tracker"
+
+#: app/templates/index.html:7
+msgid ""
+"Your simple and efficient solution for work time tracking. TM-Connect "
+"employees can easily clock in and out, and administrators have full "
+"control over company settings and comprehensive reports."
+msgstr ""
+"Ihre einfache und effiziente Lösung zur Arbeitszeiterfassung. TM-Connect "
+"Mitarbeiter können einfach ein- und ausstempeln, während Administratoren "
+"volle Kontrolle über Firmeneinstellungen und umfassende Berichte haben."
+
+#: app/templates/index.html:15
+msgid "Login"
+msgstr "Anmelden"
+
+#: app/templates/login.html:6
+msgid "Sign In"
+msgstr "Einloggen"
+
+#: app/templates/login.html:26
+msgid "Sign in with Microsoft"
+msgstr "Mit Microsoft anmelden"
+
+#: app/templates/admin/bkp_dashboard.html:37
+#: app/templates/admin/dashboard.html:37
+msgid "Clock-Out All"
+msgstr "Alle ausstempeln"
+
+#: app/templates/admin/bkp_dashboard.html:42
+#: app/templates/admin/dashboard.html:42
+msgid "Total Users"
+msgstr "Gesamtbenutzer"
+
+#: app/templates/admin/bkp_dashboard.html:43
+#: app/templates/admin/dashboard.html:43
+msgid "Users Active"
+msgstr "Aktive Benutzer"
+
+#: app/templates/admin/bkp_dashboard.html:44
+#: app/templates/admin/dashboard.html:44
+msgid "In Idle"
+msgstr "Inaktiv"
+
+#: app/templates/admin/bkp_dashboard.html:46
+#: app/templates/admin/dashboard.html:46
+msgid "Users Inactive"
+msgstr "Inaktive Benutzer"
+
+#: app/templates/admin/bkp_dashboard.html:50
+#: app/templates/admin/dashboard.html:50
+msgid "Currently Clocked-in Users"
+msgstr "Derzeit eingestempelte Benutzer"
+
+#: app/templates/admin/bkp_dashboard.html:56
+#: app/templates/admin/bkp_dashboard.html:70
+#: app/templates/admin/dashboard.html:56 app/templates/admin/dashboard.html:70
+msgid "Clock-In"
+msgstr "Kommen"
+
+#: app/templates/admin/bkp_dashboard.html:58
+#: app/templates/admin/dashboard.html:58
+msgid "Location"
+msgstr "Standort"
+
+#: app/templates/admin/bkp_dashboard.html:59
+#: app/templates/admin/dashboard.html:59
+msgid "App Version"
+msgstr "App-Version"
+
+#: app/templates/admin/bkp_dashboard.html:59
+#: app/templates/admin/dashboard.html:59
+msgid "Expected Clock Out"
+msgstr "Erwartetes Ende"
+
+#: app/templates/admin/bkp_dashboard.html:64
+#: app/templates/admin/dashboard.html:64
+msgid "No users are currently clocked in."
+msgstr "Keine Benutzer sind derzeit eingestempelt."
+
+#: app/templates/admin/bkp_dashboard.html:68
+#: app/templates/admin/dashboard.html:68
+msgid "Today's Activity Summary"
+msgstr "Zusammenfassung der heutigen Aktivität"
+
+#: app/templates/admin/bkp_dashboard.html:70
+#: app/templates/admin/dashboard.html:70
+msgid "Clock-Out"
+msgstr "Gehen"
+
+#: app/templates/admin/bkp_dashboard.html:70
+#: app/templates/admin/dashboard.html:70
+msgid "Gross Duration"
+msgstr "Bruttodauer"
+
+#: app/templates/admin/bkp_dashboard.html:70
+#: app/templates/admin/dashboard.html:70
+msgid "Inactive Time"
+msgstr "Inaktive Zeit"
+
+#: app/templates/admin/bkp_dashboard.html:70
+#: app/templates/admin/dashboard.html:70
+msgid "Net Worked"
+msgstr "Netto gearbeitet"
+
+#: app/templates/admin/bkp_dashboard.html:71
+#: app/templates/admin/dashboard.html:71
+msgid "No user activity recorded today."
+msgstr "Keine Benutzeraktivität heute aufgezeichnet."
+
+#: app/templates/admin/bkp_dashboard.html:75
+#: app/templates/admin/dashboard.html:75
+msgid "Real-Time Activity (Today)"
+msgstr "Echtzeit-Aktivität (Heute)"
+
+#: app/templates/admin/bkp_dashboard.html:76
+#: app/templates/admin/dashboard.html:76
+msgid "Loading real-time data..."
+msgstr "Lade Echtzeitdaten..."
+
+#: app/templates/admin/bkp_dashboard.html:80
+#: app/templates/admin/dashboard.html:80 app/templates/admin/reports.html:60
+msgid "Historical Reports"
+msgstr "Historische Berichte"
+
+#: app/templates/admin/bkp_dashboard.html:83
+#: app/templates/admin/dashboard.html:83
+msgid "Date Range"
+msgstr "Datumsbereich"
+
+#: app/templates/admin/bkp_dashboard.html:87
+#: app/templates/admin/dashboard.html:87
+msgid "Activity Report"
+msgstr "Aktivitätsbericht"
+
+#: app/templates/admin/bkp_dashboard.html:87
+#: app/templates/admin/dashboard.html:87
+msgid "Inactivity Log"
+msgstr "Inaktivitätsprotokoll"
+
+#: app/templates/admin/bkp_dashboard.html:87
+#: app/templates/admin/dashboard.html:87
+msgid "App Usage"
+msgstr "App-Nutzung"
+
+#: app/templates/admin/bkp_dashboard.html:87
+#: app/templates/admin/dashboard.html:87
+msgid "Timeline"
+msgstr "Zeitstrahl"
+
+#: app/templates/admin/bkp_dashboard.html:115
+#: app/templates/admin/dashboard.html:115
+msgid "Type"
+msgstr "Typ"
+
+#: app/templates/admin/bkp_dashboard.html:117
+#: app/templates/admin/dashboard.html:117 app/templates/admin/leaves.html:35
+msgid "Duration"
+msgstr "Dauer"
+
+#: app/templates/admin/bkp_dashboard.html:125
+#: app/templates/admin/dashboard.html:125
+msgid "Application"
+msgstr "Anwendung"
+
+#: app/templates/admin/bkp_dashboard.html:125
+#: app/templates/admin/dashboard.html:125
+msgid "Time Used"
+msgstr "Genutzte Zeit"
+
+#: app/templates/admin/bkp_dashboard.html:125
+#: app/templates/admin/dashboard.html:125
+msgid "Interactions"
+msgstr "Interaktionen"
+
+#: app/templates/admin/bkp_dashboard.html:126
+#: app/templates/admin/dashboard.html:126
+msgid "Select a single day to view the timeline."
+msgstr "Wählen Sie einen einzelnen Tag, um den Zeitstrahl zu sehen."
+
+#: app/templates/admin/bkp_dashboard.html:127
+#: app/templates/admin/dashboard.html:127
+msgid "No data available for the selected criteria."
+msgstr "Keine Daten für die gewählten Kriterien verfügbar."
+
+#: app/templates/admin/bkp_dashboard.html:134
+#: app/templates/admin/dashboard.html:134
+msgid "Correct Time Entry"
+msgstr "Zeiteintrag korrigieren"
+
+#: app/templates/admin/bkp_dashboard.html:134
+#: app/templates/admin/dashboard.html:134
+msgid "Clock In Time (Berlin)"
+msgstr "Einstempelzeit (Berlin)"
+
+#: app/templates/admin/bkp_dashboard.html:134
+#: app/templates/admin/dashboard.html:134
+msgid "Clock Out Time (Berlin)"
+msgstr "Ausstempelzeit (Berlin)"
+
+#: app/templates/admin/bkp_dashboard.html:134
+#: app/templates/admin/dashboard.html:134
+#: app/templates/admin/provisions.html:214
+msgid "Save Changes"
+msgstr "Änderungen speichern"
+
+#: app/templates/admin/bkp_dashboard.html:221
+#: app/templates/admin/dashboard.html:221
+msgid "Are you sure you want to clock out ALL currently active users immediately?"
+msgstr "Sind Sie sicher, dass Sie ALLE derzeit aktiven Benutzer sofort ausstempeln möchten?"
+
+#: app/templates/admin/bkp_dashboard.html:227
+#: app/templates/admin/dashboard.html:227 app/templates/admin/overtime.html:173
+#: app/templates/admin/overtime.html:192
+msgid "Error"
+msgstr "Fehler"
+
+#: app/templates/admin/bkp_dashboard.html:288
+#: app/templates/admin/dashboard.html:288
+msgid "Are you sure you want to convert this break into ACTIVE time?"
+msgstr "Sind Sie sicher, dass Sie diese Pause in AKTIVE Zeit umwandeln möchten?"
+
+#: app/templates/admin/bkp_dashboard.html:289
+#: app/templates/admin/dashboard.html:289
+msgid "Are you sure you want to convert this break into a productive MEETING?"
+msgstr "Sind Sie sicher, dass Sie diese Pause in ein produktives MEETING umwandeln möchten?"
+
+#: app/templates/admin/bkp_dashboard.html:338
+#: app/templates/admin/dashboard.html:338
+msgid "No users are actively being tracked today."
+msgstr "Keine Benutzer werden heute aktiv erfasst."
+
+#: app/templates/admin/bkp_dashboard.html:341
+#: app/templates/admin/dashboard.html:341
+msgid "Error loading real-time data."
+msgstr "Fehler beim Laden der Echtzeitdaten."
+
+#: app/templates/admin/bkp_dashboard.html:549
+#: app/templates/admin/dashboard.html:549
+msgid "Convert to Meeting"
+msgstr "In Meeting umwandeln"
+
+#: app/templates/admin/bkp_dashboard.html:550
+#: app/templates/admin/dashboard.html:550
+msgid "Convert to Active"
+msgstr "In Aktiv umwandeln"
+
+#: app/templates/admin/customers.html:6
+msgid "Customer Management"
+msgstr "Kundenverwaltung"
+
+#: app/templates/admin/customers.html:7
+msgid "Manage customer leads, service status, and research notes."
+msgstr "Verwalten Sie Kunden-Leads, Servicestatus und Notizen."
+
+#: app/templates/admin/customers.html:17
+msgid "Company"
+msgstr "Firma"
+
+#: app/templates/admin/customers.html:20 app/templates/admin/holidays.html:35
+#: app/templates/admin/leaves.html:38 app/templates/admin/overtime.html:44
+#: app/templates/admin/passwords.html:41 app/templates/admin/provisions.html:49
+#: app/templates/admin/provisions.html:133 app/templates/admin/reports.html:261
+msgid "Actions"
+msgstr "Aktionen"
+
+#: app/templates/admin/customers.html:42 app/templates/admin/provisions.html:76
+#: app/templates/admin/reports.html:275
+msgid "Edit"
+msgstr "Bearbeiten"
+
+#: app/templates/admin/customers.html:48
+msgid "No customers found."
+msgstr "Keine Kunden gefunden."
+
+#: app/templates/admin/customers.html:58 app/templates/admin/customers.html:105
+msgid "Add New Customer"
+msgstr "Neuen Kunden hinzufügen"
+
+#: app/templates/admin/customers.html:64
+msgid "Company Name"
+msgstr "Firmenname"
+
+#: app/templates/admin/customers.html:69
+msgid "Service Status"
+msgstr "Service-Status"
+
+#: app/templates/admin/customers.html:72
+msgid "Inactive"
+msgstr "Inaktiv"
+
+#: app/templates/admin/customers.html:73
+msgid "Lead"
+msgstr "Lead"
+
+#: app/templates/admin/customers.html:78
+msgid "Research Notes"
+msgstr "Recherche-Notizen"
+
+#: app/templates/admin/customers.html:79
+msgid "Key contacts, requirements..."
+msgstr "Wichtige Kontakte, Anforderungen..."
+
+#: app/templates/admin/customers.html:83
+msgid "Save Record"
+msgstr "Datensatz speichern"
+
+#: app/templates/admin/customers.html:95
+msgid "Edit Customer"
+msgstr "Kunde bearbeiten"
+
+#: app/templates/admin/holidays.html:5
+msgid "Manage Holidays"
+msgstr "Feiertage verwalten"
+
+#: app/templates/admin/holidays.html:8
+msgid "Add New Holiday"
+msgstr "Neuen Feiertag hinzufügen"
+
+#: app/templates/admin/holidays.html:34
+msgid "Name"
+msgstr "Name"
+
+#: app/templates/admin/holidays.html:45 app/templates/admin/provisions.html:83
+#: app/templates/admin/provisions.html:150
+msgid "Delete"
+msgstr "Löschen"
+
+#: app/templates/admin/holidays.html:51
+msgid "No holidays have been added yet."
+msgstr "Noch keine Feiertage hinzugefügt."
+
+#: app/templates/admin/holidays.html:59 app/templates/admin/reports.html:173
+msgid "Back to Admin Dashboard"
+msgstr "Zurück zum Admin-Dashboard"
+
+#: app/templates/admin/leaves.html:15
+msgid "Manage employee time-off requests and view team availability."
+msgstr "Verwalten Sie Urlaubsanträge und sehen Sie die Teamverfügbarkeit."
+
+#: app/templates/admin/leaves.html:25
+msgid "Pending Requests"
+msgstr "Ausstehende Anträge"
+
+#: app/templates/admin/leaves.html:37
+msgid "Submitted"
+msgstr "Eingereicht"
+
+#: app/templates/admin/leaves.html:59
+msgid "days"
+msgstr "Tage"
+
+#: app/templates/admin/leaves.html:65
+msgid "No reason provided"
+msgstr "Kein Grund angegeben"
+
+#: app/templates/admin/leaves.html:78 app/templates/admin/overtime.html:114
+msgid "Approve"
+msgstr "Genehmigen"
+
+#: app/templates/admin/leaves.html:82 app/templates/admin/overtime.html:115
+msgid "Reject"
+msgstr "Ablehnen"
+
+#: app/templates/admin/leaves.html:97
+msgid "All caught up!"
+msgstr "Alles erledigt!"
+
+#: app/templates/admin/leaves.html:98
+msgid "There are no pending leave requests at this time."
+msgstr "Derzeit keine ausstehenden Urlaubsanträge."
+
+#: app/templates/admin/leaves.html:107
+msgid "Absence Calendar"
+msgstr "Abwesenheitskalender"
+
+#: app/templates/admin/leaves.html:108
+msgid "Overview of approved leaves and holidays"
+msgstr "Übersicht über genehmigten Urlaub und Feiertage"
+
+#: app/templates/admin/leaves.html:112
+msgid "Leave"
+msgstr "Urlaub"
+
+#: app/templates/admin/leaves.html:115
+msgid "Holiday"
+msgstr "Feiertag"
+
+#: app/templates/admin/leaves.html:125
+msgid "Leave History"
+msgstr "Urlaubsverlauf"
+
+#: app/templates/admin/leaves.html:126
+msgid "By Employee"
+msgstr "Nach Mitarbeiter"
+
+#: app/templates/admin/leaves.html:140
+msgid "Approved"
+msgstr "Genehmigt"
+
+#: app/templates/admin/leaves.html:174
+msgid "No leave history available."
+msgstr "Kein Urlaubsverlauf verfügbar."
+
+#: app/templates/admin/leaves.html:209
+msgid "Today"
+msgstr "Heute"
+
+#: app/templates/admin/leaves.html:210
+msgid "Month"
+msgstr "Monat"
+
+#: app/templates/admin/leaves.html:211
+msgid "Week"
+msgstr "Woche"
+
+#: app/templates/admin/leaves.html:212
+msgid "Day"
+msgstr "Tag"
+
+#: app/templates/admin/leaves.html:213
+msgid "List"
+msgstr "Liste"
+
+#: app/templates/admin/overtime.html:9 app/templates/admin/reports.html:155
+msgid "Select User"
+msgstr "Benutzer wählen"
+
+#: app/templates/admin/overtime.html:11
+msgid "Select a user"
+msgstr "Einen Benutzer wählen"
+
+#: app/templates/admin/overtime.html:28
+msgid "Allocate / Update"
+msgstr "Zuweisen / Aktualisieren"
+
+#: app/templates/admin/overtime.html:33
+msgid "Current Allocations for"
+msgstr "Aktuelle Zuweisungen für"
+
+#: app/templates/admin/overtime.html:40
+msgid "EndT Time"
+msgstr "Endzeit"
+
+#: app/templates/admin/overtime.html:43
+msgid "Handled By"
+msgstr "Bearbeitet von"
+
+#: app/templates/admin/overtime.html:49 app/templates/admin/overtime.html:69
+msgid "Select a user to view their overtime allocations."
+msgstr "Wählen Sie einen Benutzer, um dessen Überstundenzuweisungen zu sehen."
+
+#: app/templates/admin/overtime.html:82
+msgid "Failed to fetch allocations:"
+msgstr "Fehler beim Abrufen der Zuweisungen:"
+
+#: app/templates/admin/overtime.html:83
+msgid "Error loading data."
+msgstr "Fehler beim Laden der Daten."
+
+#: app/templates/admin/overtime.html:93
+msgid "No overtime allocated for this user."
+msgstr "Keine Überstunden für diesen Benutzer zugewiesen."
+
+#: app/templates/admin/overtime.html:111
+msgid "Revoke"
+msgstr "Widerrufen"
+
+#: app/templates/admin/overtime.html:142
+msgid "Please fill all fields."
+msgstr "Bitte alle Felder ausfüllen."
+
+#: app/templates/admin/overtime.html:159
+msgid "Failed to allocate overtime:"
+msgstr "Fehler beim Zuweisen von Überstunden:"
+
+#: app/templates/admin/overtime.html:160 app/templates/admin/overtime.html:177
+#: app/templates/admin/overtime.html:196
+msgid "An unexpected error occurred."
+msgstr "Ein unerwarteter Fehler ist aufgetreten."
+
+#: app/templates/admin/overtime.html:165
+msgid "Are you sure you want to revoke this overtime allocation?"
+msgstr "Sind Sie sicher, dass Sie diese Überstundenzuweisung widerrufen möchten?"
+
+#: app/templates/admin/overtime.html:176
+msgid "Failed to revoke overtime:"
+msgstr "Fehler beim Widerrufen der Überstunden:"
+
+#: app/templates/admin/overtime.html:195
+msgid "Failed to update overtime:"
+msgstr "Fehler beim Aktualisieren der Überstunden:"
+
+#: app/templates/admin/passwords.html:8
+msgid "Telekom Password Vault"
+msgstr "Telekom Passwort-Tresor"
+
+#: app/templates/admin/passwords.html:9
+msgid "Secure storage for interface credentials. Passwords expire every 3 months."
+msgstr "Sichere Speicherung für Schnittstellen-Zugangsdaten. Passwörter laufen alle 3 Monate ab."
+
+#: app/templates/admin/passwords.html:14
+msgid "Add New Credential"
+msgstr "Neue Zugangsdaten hinzufügen"
+
+#: app/templates/admin/passwords.html:17
+msgid "Description / Service"
+msgstr "Beschreibung / Dienst"
+
+#: app/templates/admin/passwords.html:21 app/templates/admin/passwords.html:39
+msgid "Password"
+msgstr "Passwort"
+
+#: app/templates/admin/passwords.html:26
+msgid "Save to Vault"
+msgstr "Im Tresor speichern"
+
+#: app/templates/admin/passwords.html:33
+msgid "Active Credentials"
+msgstr "Aktive Zugangsdaten"
+
+#: app/templates/admin/passwords.html:38 app/templates/admin/passwords.html:89
+#: app/templates/admin/provisions.html:45
+#: app/templates/admin/provisions.html:130
+msgid "Description"
+msgstr "Beschreibung"
+
+#: app/templates/admin/passwords.html:40
+msgid "Expiration"
+msgstr "Ablauf"
+
+#: app/templates/admin/passwords.html:55
+msgid "Expired"
+msgstr "Abgelaufen"
+
+#: app/templates/admin/passwords.html:64
+msgid "Archive this password?"
+msgstr "Dieses Passwort archivieren?"
+
+#: app/templates/admin/passwords.html:66
+msgid "Archive"
+msgstr "Archivieren"
+
+#: app/templates/admin/passwords.html:73
+msgid "No active passwords found."
+msgstr "Keine aktiven Passwörter gefunden."
+
+#: app/templates/admin/passwords.html:82
+msgid "View Archived History"
+msgstr "Archivverlauf anzeigen"
+
+#: app/templates/admin/passwords.html:90
+msgid "Old Password"
+msgstr "Altes Passwort"
+
+#: app/templates/admin/passwords.html:91
+msgid "Created"
+msgstr "Erstellt"
+
+#: app/templates/admin/passwords.html:101
+msgid "Archived"
+msgstr "Archiviert"
+
+#: app/templates/admin/provisions.html:9
+msgid "Back to Dashboard"
+msgstr "Zurück zum Dashboard"
+
+#: app/templates/admin/provisions.html:27
+msgid "Current Provisions"
+msgstr "Aktuelle Provisionen"
+
+#: app/templates/admin/provisions.html:29
+msgid "Filter by Employee"
+msgstr "Nach Mitarbeiter filtern"
+
+#: app/templates/admin/provisions.html:31
+msgid "All Employees"
+msgstr "Alle Mitarbeiter"
+
+#: app/templates/admin/provisions.html:46
+msgid "Valid Until"
+msgstr "Gültig bis"
+
+#: app/templates/admin/provisions.html:47
+msgid "Target"
+msgstr "Ziel"
+
+#: app/templates/admin/provisions.html:48
+msgid "Provision"
+msgstr "Provision"
+
+#: app/templates/admin/provisions.html:80
+msgid "Delete this provision?"
+msgstr "Diese Provision löschen?"
+
+#: app/templates/admin/provisions.html:92
+msgid "No provisions found for this user."
+msgstr "Keine Provisionen für diesen Benutzer gefunden."
+
+#: app/templates/admin/provisions.html:95
+msgid "No active provisions found."
+msgstr "Keine aktiven Provisionen gefunden."
+
+#: app/templates/admin/provisions.html:100
+msgid "Add New Provision"
+msgstr "Neue Provision hinzufügen"
+
+#: app/templates/admin/provisions.html:123
+msgid "Provision History (Expired)"
+msgstr "Provisionsverlauf (Abgelaufen)"
+
+#: app/templates/admin/provisions.html:132
+msgid "Result"
+msgstr "Ergebnis"
+
+#: app/templates/admin/provisions.html:159
+msgid "No expired provisions in history."
+msgstr "Keine abgelaufenen Provisionen im Verlauf."
+
+#: app/templates/admin/provisions.html:167
+msgid "Edit Provision"
+msgstr "Provision bearbeiten"
+
+#: app/templates/admin/provisions.html:202
+#, python-format
+msgid "Percent (%%)"
+msgstr "Prozent (%%)"
+
+#: app/templates/admin/provisions.html:206
+msgid "Euro (€)"
+msgstr "Euro (€)"
+
+#: app/templates/admin/provisions.html:260
+msgid "Error loading provision details."
+msgstr "Fehler beim Laden der Provisionsdetails."
+
+#: app/templates/admin/provisions.html:295
+msgid "Failed to save changes."
+msgstr "Änderungen konnten nicht gespeichert werden."
+
+#: app/templates/admin/reports.html:43
+msgid "Time Reports"
+msgstr "Zeitberichte"
+
+#: app/templates/admin/reports.html:61
+msgid "Time Correction"
+msgstr "Zeitkorrektur"
+
+#: app/templates/admin/reports.html:70
+msgid "Report Type"
+msgstr "Berichtstyp"
+
+#: app/templates/admin/reports.html:114
+msgid "Aggregated Summary"
+msgstr "Aggregierte Zusammenfassung"
+
+#: app/templates/admin/reports.html:140
+msgid "Export as CSV"
+msgstr "Als CSV exportieren"
+
+#: app/templates/admin/reports.html:143
+msgid "No data found for the selected criteria."
+msgstr "Keine Daten für die gewählten Kriterien gefunden."
+
+#: app/templates/admin/reports.html:145
+msgid "Select criteria and click \"Generate Report\" to display data."
+msgstr "Wählen Sie Kriterien und klicken Sie auf \"Bericht erstellen\", um Daten anzuzeigen."
+
+#: app/templates/admin/reports.html:152
+msgid "Correct User Time Entries"
+msgstr "Benutzer-Zeiteinträge korrigieren"
+
+#: app/templates/admin/reports.html:159
+msgid "Select Date"
+msgstr "Datum wählen"
+
+#: app/templates/admin/reports.html:163
+msgid "Get Entries"
+msgstr "Einträge abrufen"
+
+#: app/templates/admin/reports.html:168
+msgid "Please select a user and date to display entries."
+msgstr "Bitte wählen Sie Benutzer und Datum, um Einträge anzuzeigen."
+
+#: app/templates/admin/reports.html:181
+msgid "Edit Time Entry"
+msgstr "Zeiteintrag bearbeiten"
+
+#: app/templates/admin/reports.html:185
+msgid "Clock In (Berlin Time)"
+msgstr "Kommen (Berlin Zeit)"
+
+#: app/templates/admin/reports.html:189
+msgid "Clock Out (Berlin Time)"
+msgstr "Gehen (Berlin Zeit)"
+
+#: app/templates/admin/reports.html:195
+msgid "Save"
+msgstr "Speichern"
+
+#: app/templates/admin/reports.html:238
+msgid "Please select a user and date."
+msgstr "Bitte wählen Sie Benutzer und Datum."
+
+#: app/templates/admin/reports.html:243
+msgid "Loading entries..."
+msgstr "Lade Einträge..."
+
+#: app/templates/admin/reports.html:252
+msgid "No entries found for the selected criteria."
+msgstr "Keine Einträge für die gewählten Kriterien gefunden."
+
+#: app/templates/admin/reports.html:259
+msgid "Clock In (Berlin)"
+msgstr "Kommen (Berlin)"
+
+#: app/templates/admin/reports.html:260
+msgid "Clock Out (Berlin)"
+msgstr "Gehen (Berlin)"
+
+#: app/templates/admin/reports.html:283
+msgid "Error fetching entries."
+msgstr "Fehler beim Abrufen der Einträge."
+
+#: app/templates/admin/reports.html:305
+msgid "CSRF Token not found. Please reload the page."
+msgstr "CSRF-Token nicht gefunden. Bitte Seite neu laden."
+
+#: app/templates/admin/reports.html:323
+msgid "Time entry updated successfully!"
+msgstr "Zeiteintrag erfolgreich aktualisiert!"
+
+#: app/templates/admin/reports.html:330
+msgid "Error updating entry: "
+msgstr "Fehler beim Aktualisieren des Eintrags: "
+
+#: app/templates/admin/settings.html:7
+msgid "Company Settings"
+msgstr "Firmeneinstellungen"
+
+#: app/templates/admin/settings.html:8
+msgid "Manage default values and automation rules for all TMC Employees."
+msgstr "Standardwerte und Automatisierungsregeln für alle TMC-Mitarbeiter verwalten."
+
+#: app/templates/admin/settings.html:16
+msgid "User Defaults"
+msgstr "Benutzer-Standards"
+
+#: app/templates/admin/settings.html:49
+msgid "Company-Wide Rules"
+msgstr "Firmenweite Regeln"
+
+#: app/templates/admin/settings.html:54
+msgid "Earliest allowed clock-in time."
+msgstr "Früheste erlaubte Einstempelzeit."
+
+#: app/templates/admin/settings.html:62
+msgid "Time when any remaining sessions are automatically clocked out."
+msgstr "Zeitpunkt, zu dem verbleibende Sitzungen automatisch ausgestempelt werden."
+
+#: app/templates/admin/settings.html:74
+msgid "Automation Settings"
+msgstr "Automatisierungseinstellungen"
+
+#: app/templates/admin/settings.html:80
+msgid "Time of inactivity before the tracker shows 'Idle'."
+msgstr "Inaktivitätszeit, bevor der Tracker 'Inaktiv' anzeigt."
+
+#: app/templates/admin/settings.html:89
+msgid "Automatically start a break if a user remains idle."
+msgstr "Automatisch Pause starten, wenn ein Benutzer inaktiv bleibt."
+
+#: app/templates/admin/settings.html:98
+msgid "Ask for a reason if a break exceeds this duration."
+msgstr "Nach Grund fragen, wenn eine Pause diese Dauer überschreitet."
+
+#: app/templates/admin/settings.html:107
+msgid "Automatically clock out a user if a break exceeds this duration."
+msgstr "Benutzer automatisch ausstempeln, wenn eine Pause diese Dauer überschreitet."

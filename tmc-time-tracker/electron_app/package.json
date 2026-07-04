@@ -1,0 +1,104 @@
+{
+  "name": "time-tracker",
+  "version": "2.7.3",
+  "description": "Time-tracker",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "package": "electron-builder --win",
+    "postinstall": "electron-builder install-app-deps",
+    "publish": "electron-builder --win --publish always",
+    "rebuild": "electron-rebuild -f -w uiohook-napi"
+  },
+  "author": "TM-Connect",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tmc2admin/tmc-time-tracker.git"
+  },
+  "keywords": [
+    "electron",
+    "activity",
+    "tracker",
+    "work-hours",
+    "time-tracker",
+    "automation",
+    "productivity"
+  ],
+  "dependencies": {
+    "active-win": "^9.0.0",
+    "axios": "^1.10.0",
+    "date-fns": "^2.28.0",
+    "date-fns-tz": "^1.3.7",
+    "dotenv": "^17.2.0",
+    "electron-log": "^4.4.8",
+    "electron-store": "^7.0.3",
+    "node-macaddress": "^0.2.4",
+    "uiohook-napi": "1.5.4"
+  },
+  "devDependencies": {
+    "electron": "31.0.0",
+    "electron-builder": "^24.13.3",
+    "electron-rebuild": "^3.2.9"
+  },
+  "build": {
+    "appId": "de.tmconnect.time-tracker",
+    "productName": "Time-tracker",
+    "files": [
+      "main.js",
+      "config.js",
+      "index.html",
+      "preload.js",
+      "auth.js",
+      "apiService.js",
+      "renderer.js",
+      "services/**/*",
+      "icon.png",
+      "package.json",
+      "*.js",
+      "style.css",
+      "chart.min.js",
+      "chartjs-adapter-date-fns.bundle.min.js"
+    ],
+    "extraResources": [
+      {
+        "from": "./icon.png",
+        "to": "icon.png"
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "icon.ico",
+      "requestedExecutionLevel": "asInvoker",
+      "extraResources": [
+        {
+          "from": "node_modules/active-win",
+          "to": "node_modules/active-win",
+          "filter": [
+            "**/*"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "installerIcon": "icon.ico",
+      "uninstallerIcon": "icon.ico",
+      "uninstallDisplayName": "${productName}",
+      "include": "build/installer.nsh"
+    },
+    "artifactName": "${productName}-Setup-${version}.${ext}",
+    "directories": {
+      "output": "dist"
+    },
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://storagetmc1.blob.core.windows.net/xperttimer/updates/"
+      }
+    ]
+  }
+}

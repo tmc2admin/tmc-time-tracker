@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com https://storagetmc1.blob.core.windows.net;">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Time-Tracker</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script> 
+    <script src="./chart.min.js"></script>
+    <script src="./chartjs-adapter-date-fns.bundle.min.js"></script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+    <style>
+        :root { --widget-bg-top: #2c3342; --widget-bg-btm: #20242e; --bar-bg: #1e2229; --bar-border: #14171d; }
+        body { background-color: transparent; font-family: 'Inter', sans-serif; user-select: none; overflow: hidden; height: 100vh; }
+        /* Box sizing fix */
+        * { box-sizing: border-box; }
+        
+        #app-container { 
+            background: linear-gradient(160deg, var(--widget-bg-top) 0%, var(--widget-bg-btm) 100%); 
+            box-shadow: inset 0 1px 1px rgba(255,255,255,0.08), 0 0 0 1px rgba(0,0,0,0.2); 
+            height: 100%; /* Fill the 150px window */
+        }
+        #main-header { -webkit-app-region: drag; }
+        .no-drag { -webkit-app-region: no-drag; }
+
+        /* Dynamic Progress Bar Styles */
+        .progress-track { background-color: var(--bar-bg); border: 1px solid var(--bar-border); box-shadow: inset 0 2px 4px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.05); overflow: hidden; }
+        .segment { height: 100%; float: left; position: relative; transition: width 0.5s ease; }
+        .segment::after { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 50%; background: linear-gradient(to bottom, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.1) 80%, rgba(255,255,255,0) 100%); pointer-events: none; }
+        
+        .seg-active { background: linear-gradient(to bottom, #2ecc71, #27ae60); box-shadow: 0 0 8px rgba(46, 204, 113, 0.4); }
+        .seg-break { background: linear-gradient(to bottom, #f39c12, #d35400); }
+        .seg-idle { background: linear-gradient(to bottom, #95a5a6, #7f8c8d); }
+        
+        #digitalClockDisplay { font-variant-numeric: tabular-nums; text-shadow: 0 0 15px rgba(100, 200, 255, 0.1); }
+        .status-dot-pulse { animation: pulse 2s infinite ease-in-out; box-shadow: 0 0 8px #2ecc71; }
+        @keyframes pulse { 0% { opacity: 1; transform: scale(1); } 50% { opacity: 0.6; transform: scale(0.9); } 100% { opacity: 1; transform: scale(1); } }
+        
+        /* Flag Styles */
+        .flag-de { background: linear-gradient(to bottom, #111 33%, #d00 33%, #d00 66%, #ffce00 66%); }
+        .flag-en { background: linear-gradient(to bottom, #00247d 0%, #00247d 100%); position: relative; overflow: hidden; }
+        .flag-en::before { content:''; position: absolute; top: 50%; left: 0; right: 0; height: 2px; background: #fff; transform: translateY(-50%); }
+        .flag-en::after { content:''; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; background: #fff; transform: translateX(-50%); }
+    </style>
+</head>
+<body class="flex items-center justify-center">
+
+    <div id="app-container" class="w-[300px] flex flex-col relative text-[#eef2f6]">
+
+        <div id="main-header" class="flex justify-between items-center px-3 pt-2 pb-1">
+            <div class="flex items-center gap-2">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#3baaf9]"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                <span class="text-[11px] font-medium text-[#bdc7d6] tracking-tight">Time-Tracker</span>
+                <span id="appVersionDisplay" class="text-[9px] bg-white/10 px-1 py-0 rounded text-slate-400">v2.1</span>
+            </div>
+            <div class="flex items-center gap-2 text-[#8b9bb4]">
+                <button id="openDashboardBtn" class="no-drag hover:text-[#3baaf9] transition-colors"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect></svg></button>
+                <button id="minimizeBtn" class="no-drag hover:text-white transition-colors"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
+            </div>
+        </div>
+
+        <div class="flex-1 flex flex-col px-3 py-1">
+            
+            <div class="flex justify-between items-center mb-1">
+                <div class="flex items-center gap-2">
+                   <h1 id="digitalClockDisplay" class="text-[10px] font-normal tracking-wide text-white leading-none">00:00:00</h1>
+                    <div id="clockStatusDot" class="w-1.5 h-1.5 bg-[#2ecc71] rounded-full status-dot-pulse"></div>
+                </div>
+                <div class="flex items-center gap-2 opacity-80 no-drag">
+                    <span id="langLabel" class="text-[10px] font-medium text-[#8b9bb4]">DE</span>
+                    <div id="languageToggleWrapper" class="cursor-pointer hover:opacity-80 transition-opacity">
+                            <div id="langDeBtn" class="w-[16px] h-[10px] rounded-sm shadow-sm flag-de"></div>
+                            <div id="langEnBtn" class="w-[16px] h-[10px] rounded-sm shadow-sm hidden">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 7410 3900" class="w-full h-full rounded-sm">
+                                    <rect width="7410" height="3900" fill="#b22234"/>
+                                    <path d="M0,450H7410M0,1650H7410M0,2850H7410" stroke="#fff" stroke-width="300"/>
+                                    <rect width="2964" height="2100" fill="#3c3b6e"/>
+                                    <g fill="#fff">
+                                        <g id="s18"><g id="s9"><g id="s5"><g id="s4"><path id="s" d="M247,90 317,306 133,172 361,172 177,306z"/><use xlink:href="#s" x="420"/><use xlink:href="#s" x="840"/><use xlink:href="#s" x="1260"/></g><use xlink:href="#s" x="1680"/></g><use xlink:href="#s4" x="2100"/></g><use xlink:href="#s9" y="660"/></g><use xlink:href="#s18" y="1320"/><use xlink:href="#s9" id="s9b" x="210" y="330"/><use xlink:href="#s9b" y="660"/><use xlink:href="#s9b" y="1320"/>
+                                    </g>
+                                </svg>
+                            </div>
+                        </div>
+                </div>
+            </div>
+
+            <div class="mb-0">
+                <div id="progress-track-container" class="progress-track w-full h-[6px] rounded-[3px] flex relative"></div>
+
+                <div id="gantt-chart-container" class="hidden"><canvas id="activity-timeline-canvas"></canvas></div>
+                <p id="gantt-chart-message" class="hidden text-[9px] text-center text-slate-500 mt-1">No activity data</p>
+
+                <div id="time-labels-container" class="flex justify-between px-1 mt-1 text-[9px] font-medium text-[#8b9bb4] opacity-60">
+                    </div>
+            </div>
+
+            <span id="userDisplayName" class="hidden">User</span>
+        </div>
+
+        <div class="flex justify-between items-center px-3 py-1.5 mt-auto">
+            <div class="flex items-center gap-2">
+                <span id="sessionDate" class="text-[10px] text-[#8b9bb4]">09 Feb 2026</span>
+                <span class="text-[#8b9bb4] text-[10px] leading-none">•</span>
+                <div class="flex items-center gap-1.5">
+                    <div class="w-[4px] h-[4px] bg-[#2ecc71] rounded-full shadow-[0_0_4px_#2ecc71]"></div>
+                    <span id="clockStatus" class="text-[10px] font-medium text-white">Active</span>
+                </div>
+            </div>
+            <button id="clockToggleBtn" class="w-7 h-7 rounded-full flex items-center justify-center no-drag cursor-pointer hover:scale-105 transition-transform text-white bg-white/5 hover:bg-white/10">
+                <svg id="stop-icon" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" class="rounded-[2px]">
+                    <path d="M4 4h16v16H4z"></path>
+                </svg>
+                <svg id="play-icon" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" class="hidden ml-0.5">
+                    <path d="M8 5v14l11-7z"></path>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <div id="loading-indicator" class="hidden fixed inset-0 bg-slate-900/95 z-50 flex items-center justify-center rounded-2xl">
+        <div id="loading-state" class="text-center">
+            <div class="w-24 bg-slate-700 rounded-full h-1 mx-auto mb-2 overflow-hidden"><div id="progressBar" class="bg-blue-500 h-full w-1/2 animate-pulse"></div></div>
+            <p id="loadingMessage" class="text-[10px] text-slate-400">Loading...</p>
+        </div>
+    </div>
+
+    <div id="error-state" class="hidden fixed inset-0 bg-slate-900/95 z-50 flex flex-col items-center justify-center rounded-2xl p-4 text-center">
+        <p id="errorMessage" class="text-white text-[10px] mb-2">Error</p>
+        <div class="flex gap-2">
+            <button id="retry-btn" class="bg-blue-600 text-white px-2 py-1 rounded text-[10px]">Retry</button>
+            <button id="exit-btn" class="bg-slate-700 text-white px-2 py-1 rounded text-[10px]">Exit</button>
+        </div>
+    </div>
+
+    <div id="breakReasonModal" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center backdrop-blur-sm">
+        <div class="w-[260px] bg-[#1e2229] border border-slate-700 p-3 rounded-lg shadow-2xl">
+            <h3 class="text-xs font-medium text-white mb-2" data-i18n="breakModalTitle">Break Reason</h3>
+            <form id="breakReasonForm">
+                <input type="hidden" id="breakIdInput">
+                <textarea id="breakReasonInput" rows="1" class="w-full text-xs rounded bg-[#121418] border-slate-700 text-slate-300 p-1.5 mb-2 focus:outline-none focus:border-blue-500"></textarea>
+                <div class="flex gap-2">
+                    <button id="submitBreakReason" type="submit" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white text-[10px] py-1 rounded">Submit</button>
+                    <button id="cancelBreakReason" type="button" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white text-[10px] py-1 rounded">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="update-banner" class="hidden absolute top-0 w-full bg-blue-600 text-white text-[9px] p-1 text-center z-40 rounded-t-lg">
+        <span id="update-message">Update available</span>
+        <button id="restart-app-btn" class="ml-2 bg-white/20 px-1.5 py-0 rounded hover:bg-white/30">Restart</button>
+    </div>
+
+    <div id="updateProgressModal" class="hidden fixed inset-0 bg-slate-900/95 z-50 flex flex-col items-center justify-center rounded-2xl p-4">
+        <h3 id="updateProgressTitle" class="text-white text-xs font-medium mb-2">Downloading Update</h3>
+        <div class="w-40 bg-slate-700 h-1 rounded-full overflow-hidden mb-1">
+            <div id="updateProgressBar" class="bg-blue-500 h-full w-0 transition-all duration-300"></div>
+        </div>
+        <div class="flex justify-between w-40 text-[9px] text-slate-400 mb-1">
+            <span id="updateProgressPercent">0%</span>
+            <span id="updateProgressSize">0 MB / 0 MB</span>
+        </div>
+        <p id="updateProgressMessage" class="text-slate-300 text-[9px] text-center">Starting...</p>
+    </div>
+
+    <div id="messageBox" class="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-[60] text-white px-3 py-1.5 rounded text-xs shadow-lg pointer-events-none opacity-0 transition-opacity duration-300"></div>
+    
+    <script src="./renderer.js"></script>
+</body>
+</html>

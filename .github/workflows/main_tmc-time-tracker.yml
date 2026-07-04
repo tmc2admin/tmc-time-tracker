@@ -1,0 +1,85 @@
+name: Build and Deploy Flask App
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy-flask:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    defaults:
+      run:
+        working-directory: ./tmc-time-tracker/flask_app
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'   # ✅ Enables automatic pip cache
+
+      - name: Install system dependencies for pyodbc
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y unixodbc-dev
+
+      - name: Install Flask dependencies
+        run: pip install -r requirements.txt
+
+      - name: Create .env file
+        run: |
+          cat <<EOF > .env
+          DB_USER=${{ secrets.DB_USER }}
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+          DB_SERVER=${{ secrets.DB_SERVER }}
+          DB_NAME=${{ secrets.DB_NAME }}
+          OAUTH_CLIENT_ID=${{ secrets.OAUTH_CLIENT_ID }}
+          OAUTH_CLIENT_SECRET=${{ secrets.OAUTH_CLIENT_SECRET }}
+          OAUTH_AUTHORITY=${{ secrets.OAUTH_AUTHORITY }}
+          EOF
+
+      - name: Deploy Flask app to Azure Web App
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'tmc-time-tracker'
+          slot-name: 'Production'
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_743F384246B748F08CFC3EC5655E5E76 }}
+          package: ./tmc-time-tracker/flask_app
+
+  build-electron-windows:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          cache: 'npm'  # ✅ Enables npm/yarn cache
+          cache-dependency-path: ./tmc-time-tracker/electron_app/package-lock.json
+
+      - name: Install Electron app dependencies
+        working-directory: ./tmc-time-tracker/electron_app
+        run: npm ci  # ✅ Faster & more reproducible than npm install
+
+      - name: Build and publish Windows installer to GitHub Releases
+        working-directory: ./tmc-time-tracker/electron_app
+        run: npm run publish
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
