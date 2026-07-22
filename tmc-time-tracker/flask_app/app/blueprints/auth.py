@@ -1,7 +1,8 @@
 import secrets
 import time as time_module
 import requests
-from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, session
+import os
+from flask import Blueprint, current_app, render_template, redirect, url_for, flash, request, jsonify, session
 from flask_login import login_user, logout_user, current_user, login_required
 
 from .. import db, oauth
@@ -29,6 +30,9 @@ def login():
 
 @auth_bp.route('/login/microsoft')
 def login_microsoft():
+    if not current_app.config.get('MICROSOFT_SSO_ENABLED'):
+        flash('Microsoft login is not configured in this environment.', 'warning')
+        return redirect(url_for('auth.index'))
     redirect_uri = url_for('auth.authorize_microsoft', _external=True)
     return oauth.microsoft.authorize_redirect(redirect_uri, prompt='select_account')
 
@@ -81,6 +85,43 @@ def logout():
     logout_user()
     flash('You have been logged out.', 'info')
     return redirect(url_for('auth.index'))
+
+@auth_bp.route('/dev-login')
+def dev_login():
+    if not (current_app.config.get('APP_ENV') == 'development' and current_app.config.get('ENABLE_DEV_LOGIN')):
+        return redirect(url_for('auth.login'))
+
+    config = CompanyConfig.query.first()
+    if not config:
+        config = CompanyConfig()
+        db.session.add(config)
+        db.session.flush()
+
+    email = os.getenv('DEV_LOGIN_EMAIL', 'dev.admin@tm-connect.de')
+    username = os.getenv('DEV_LOGIN_NAME', 'Local Test Admin')
+    microsoft_oid = os.getenv('DEV_LOGIN_OID', 'local-dev-admin')
+    is_admin = os.getenv('DEV_LOGIN_IS_ADMIN', '1') == '1'
+
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        user = User(
+            username=username,
+            email=email,
+            microsoft_oid=microsoft_oid,
+            is_admin=is_admin,
+            default_daily_hours=config.default_daily_hours or 8.0,
+            default_working_days=config.default_working_days or 'Monday,Tuesday,Wednesday,Thursday,Friday'
+        )
+        db.session.add(user)
+    else:
+        user.username = username
+        user.microsoft_oid = microsoft_oid
+        user.is_admin = is_admin
+
+    db.session.commit()
+    login_user(user)
+    flash('Logged in with local development user.', 'success')
+    return redirect(url_for('admin.dashboard' if user.is_admin else 'web.dashboard'))
 
 @auth_bp.route('/set_language/<lang_code>')
 def set_language(lang_code):

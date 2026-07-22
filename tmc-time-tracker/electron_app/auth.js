@@ -27,6 +27,18 @@ function generateCodeChallenge(verifier) {
  */
 function authenticateWithMicrosoft() {
     return new Promise(async (resolve, reject) => {
+        if (config.DEV_AUTH_BYPASS && config.IS_DEV) {
+            log.warn('[Auth] DEV_AUTH_BYPASS is enabled. Using local test identity.');
+            return resolve({
+                userProfile: {
+                    id: config.DEV_AUTH_OID,
+                    displayName: config.DEV_AUTH_NAME,
+                    mail: config.DEV_AUTH_EMAIL,
+                    userPrincipalName: config.DEV_AUTH_EMAIL
+                }
+            });
+        }
+
         // Validate Config Loaded
         if (!MS_CLIENT_ID || !MS_AUTHORITY) {
             const configError = new Error('Microsoft OAuth configuration is missing (Check config.js).');

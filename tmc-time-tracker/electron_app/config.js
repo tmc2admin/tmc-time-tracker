@@ -28,6 +28,10 @@ module.exports = {
     OAUTH_REDIRECT_URI: process.env.OAUTH_REDIRECT_URI || '29a2d157-e5eb-4905-acc2-5d664e040a9e', 
 
     GH_TOKEN: process.env.GH_TOKEN || '', 
+    DEV_AUTH_BYPASS: process.env.DEV_AUTH_BYPASS === '1',
+    DEV_AUTH_EMAIL: process.env.DEV_AUTH_EMAIL || 'dev.admin@tm-connect.de',
+    DEV_AUTH_NAME: process.env.DEV_AUTH_NAME || 'Local Test Admin',
+    DEV_AUTH_OID: process.env.DEV_AUTH_OID || 'local-dev-admin',
     
     // Feature Flags & Settings
     IS_DEV: !isPackaged,

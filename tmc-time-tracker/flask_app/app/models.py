@@ -20,11 +20,11 @@ class User(UserMixin, db.Model):
     default_working_days = db.Column(db.String(255), default='Monday,Tuesday,Wednesday,Thursday,Friday')
     time_entries = db.relationship('TimeEntry', backref='user', lazy=True)
     session_start_time = db.Column(db.Time, nullable=False, server_default=text("'09:00:00'"))
-    session_end_time = db.Column(db.Time, nullable=False, server_default=text("'18:00:00'"))
+    session_end_time = db.Column(db.Time, nullable=False, server_default=text("'22:00:00'"))
     overtime_end_time = db.Column(db.DateTime, nullable=True) 
     is_suspended = db.Column(db.Boolean, default=False, nullable=False) 
     provision_percentage = db.Column(db.Float, nullable=True, default=100.0)
-    last_heartbeat_utc = db.Column(db.DateTime, nullable=True, server_default=db.func.utcnow())
+    last_heartbeat_utc = db.Column(db.DateTime, nullable=True, default=datetime.utcnow)
     
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -64,7 +64,7 @@ class CompanyConfig(db.Model):
     default_daily_hours = db.Column(db.Float, default=8.0)
     default_working_days = db.Column(db.String(255), default='Monday,Tuesday,Wednesday,Thursday,Friday')
     working_hours_start = db.Column(db.Time, nullable=False, server_default=text("'07:00:00'"))
-    working_hours_end = db.Column(db.Time, nullable=False, server_default=text("'18:00:00'"))
+    working_hours_end = db.Column(db.Time, nullable=False, server_default=text("'22:00:00'"))
     max_idle_minutes = db.Column(db.Integer, nullable=False, server_default=text("5"))
     idle_to_break_minutes = db.Column(db.Integer, nullable=False, server_default=text("10"))
     long_break_prompt_minutes = db.Column(db.Integer, nullable=False, server_default=text("90"))

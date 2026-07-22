@@ -14,6 +14,9 @@ __pycache__/
 tmc-time-tracker/electron_app/node_modules/
 tmc-time-tracker/flask_app/migrations/
 tmc-time-tracker/electron_app/dist/
+tmc-time-tracker/electron_app/pnpm-lock.yaml
+tmc-time-tracker/flask_app/instance/
+tmc-time-tracker/flask_app/dev-server*.log
 *.exe
 *.dmg
 *.app

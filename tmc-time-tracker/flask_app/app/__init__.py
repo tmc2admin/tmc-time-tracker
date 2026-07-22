@@ -49,8 +49,10 @@ def create_app():
     
     app.config['SECRET_KEY'] = secret_key
     
-    # Main database connection
-    main_db_uri = f"mssql+pyodbc://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}@{os.getenv('DB_SERVER')}/{os.getenv('DB_NAME')}?driver=ODBC+Driver+17+for+SQL+Server"
+    # Main database connection. DATABASE_URL allows a local test DB without Azure SQL.
+    main_db_uri = os.getenv('DATABASE_URL')
+    if not main_db_uri:
+        main_db_uri = f"mssql+pyodbc://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}@{os.getenv('DB_SERVER')}/{os.getenv('DB_NAME')}?driver=ODBC+Driver+17+for+SQL+Server"
     
     # KLSID database connection (second database)
     klsid_db_uri = None
@@ -70,7 +72,9 @@ def create_app():
         'BABEL_DEFAULT_LOCALE': 'de',
         'BABEL_TRANSLATION_DIRECTORIES': '../translations',
         'LANGUAGES': {'de': 'Deutsch', 'en': 'English'},
-        'BERLIN_TZ': pytz.timezone('Europe/Berlin')
+        'BERLIN_TZ': pytz.timezone('Europe/Berlin'),
+        'APP_ENV': os.getenv('APP_ENV', 'production'),
+        'ENABLE_DEV_LOGIN': os.getenv('ENABLE_DEV_LOGIN', '0') == '1',
     }
     
     # Add binds if second database is configured
@@ -98,16 +102,21 @@ def create_app():
     login_manager.login_view = 'auth.index'
 
     # --- Microsoft OAuth ---
-    oauth.register(
-        name='microsoft',
-        client_id=app.config['OAUTH_CLIENT_ID'],
-        client_secret=app.config['OAUTH_CLIENT_SECRET'],
-        server_metadata_url=f"{app.config['OAUTH_AUTHORITY']}/v2.0/.well-known/openid-configuration",
-        client_kwargs={
-            'scope': 'openid profile email User.Read',
-            'code_challenge_method': 'S256'
-        },
-    )
+    if app.config['OAUTH_CLIENT_ID'] and app.config['OAUTH_AUTHORITY']:
+        oauth.register(
+            name='microsoft',
+            client_id=app.config['OAUTH_CLIENT_ID'],
+            client_secret=app.config['OAUTH_CLIENT_SECRET'],
+            server_metadata_url=f"{app.config['OAUTH_AUTHORITY']}/v2.0/.well-known/openid-configuration",
+            client_kwargs={
+                'scope': 'openid profile email User.Read',
+                'code_challenge_method': 'S256'
+            },
+        )
+        app.config['MICROSOFT_SSO_ENABLED'] = True
+    else:
+        app.config['MICROSOFT_SSO_ENABLED'] = False
+        app_logger.warning("Microsoft SSO is not configured. Use ENABLE_DEV_LOGIN=1 for local testing.")
 
     # Language change route
     @app.route('/language/<lang>')

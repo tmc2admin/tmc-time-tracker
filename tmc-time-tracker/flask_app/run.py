@@ -11,4 +11,5 @@ def make_shell_context():
 
 if __name__ == '__main__':
     # Use '0.0.0.0' to be accessible from the network, including from the Electron app in dev
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    debug = os.getenv('FLASK_DEBUG', '1') == '1'
+    app.run(host='0.0.0.0', port=5000, debug=debug, use_reloader=False)

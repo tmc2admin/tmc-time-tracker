@@ -21,7 +21,7 @@ def seed_command():
             default_daily_hours=8.0,
             default_working_days='Monday,Tuesday,Wednesday,Thursday,Friday',
             working_hours_start=time(9, 0),
-            working_hours_end=time(18, 0),
+            working_hours_end=time(22, 0),
             max_idle_minutes=5,
             idle_to_break_minutes=15,
             long_break_prompt_minutes=60
