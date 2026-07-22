@@ -1,0 +1,11 @@
+nodeLinker: hoisted
+allowBuilds:
+  '@azure/msal-node-extensions': true
+  '@azure/msal-node-runtime': true
+  active-win: true
+  electron: true
+  keytar: true
+  lzma-native: true
+  uiohook-napi: true
+minimumReleaseAgeExclude:
+  - '@azure/msal-node@5.4.2'

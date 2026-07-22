@@ -17,6 +17,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   retryStartup: () => ipcRenderer.send('retry-startup'),
   setLanguage: (lang) => ipcRenderer.send('set-language', { lang }),
   openDashboardWindow: () => ipcRenderer.send('open-dashboard-window'),
+  showAccountMenu: () => ipcRenderer.send('show-account-menu'),
+  signInWithOtherAccount: () => ipcRenderer.send('sign-in-with-other-account'),
   
   // --- Core Logic (Clock, Breaks, Meetings) ---
   sendClockAction: (action, payload) => ipcRenderer.send('clock-action', action, payload),
@@ -33,6 +35,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onDashboardDataUpdate: (callback) => ipcRenderer.on('dashboard-data-update', (event, ...args) => callback(...args)),
   onInitialDataReady: (callback) => ipcRenderer.on('initial-data-ready', (event, ...args) => callback(...args)),
   onStartupError: (callback) => ipcRenderer.on('startup-error', (event, ...args) => callback(...args)),
+  onAuthStateChanged: (callback) => ipcRenderer.on('auth-state-changed', (event, ...args) => callback(...args)),
   onPromptBreakReason: (callback) => ipcRenderer.on('prompt-break-reason', (event, ...args) => callback(...args)),
   onClockInError: (callback) => ipcRenderer.on('clock-in-error', (event, ...args) => callback(...args)),
 });

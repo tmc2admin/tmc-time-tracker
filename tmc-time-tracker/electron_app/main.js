@@ -14,7 +14,7 @@ const config = require('./config');
 
 // --- Modules ---
 const ApiService = require('./apiService');
-const { authenticateWithMicrosoft } = require('./auth');
+const { authenticateWithMicrosoft, signOutMicrosoft } = require('./auth');
 const ActivityTracker = require('./services/tracker');
 const SessionManager = require('./services/session');
 const { version } = require('./package.json');
@@ -48,7 +48,14 @@ const appTranslations = {
         outsideWorkingHoursTitle: "Outside Working Hours",
         outsideWorkingHoursBody: "You can only clock in between {start} and {end}.",
         networkErrorTitle: "Connection Error",
-        networkErrorBody: "Could not sync with server. Please try again."
+        networkErrorBody: "Could not sync with server. Please try again.",
+        showApp: "Show App",
+        switchAccount: "Switch account...",
+        signOut: "Sign out",
+        signInDifferent: "Sign in with another account...",
+        quitApp: "Quit",
+        accountChangeBlockedTitle: "Clock out first",
+        accountChangeBlockedBody: "Please clock out before signing out or switching accounts."
     },
     de: {
         clockOutDetectedTitle: "Ausstempeln erkannt",
@@ -65,7 +72,14 @@ const appTranslations = {
         outsideWorkingHoursTitle: "Außerhalb der Arbeitszeit",
         outsideWorkingHoursBody: "Sie können sich nur zwischen {start} und {end} einstempeln.",
         networkErrorTitle: "Verbindungsfehler",
-        networkErrorBody: "Synchronisation mit Server fehlgeschlagen. Bitte versuchen Sie es erneut."
+        networkErrorBody: "Synchronisation mit Server fehlgeschlagen. Bitte versuchen Sie es erneut.",
+        showApp: "App anzeigen",
+        switchAccount: "Benutzer wechseln...",
+        signOut: "Abmelden",
+        signInDifferent: "Mit anderem Benutzer anmelden...",
+        quitApp: "Beenden",
+        accountChangeBlockedTitle: "Zuerst ausstempeln",
+        accountChangeBlockedBody: "Bitte stempeln Sie sich aus, bevor Sie sich abmelden oder den Benutzer wechseln."
     }
 };
 
@@ -106,6 +120,7 @@ class AppController {
         this.isIdle = false;
         this.isOnline = net.isOnline();
         this.isShuttingDown = false;
+        this.isAuthenticating = false;
         this.activeIdleEntryId = null;
         this.currentBreakStartTime = null;
         this.automationConfig = null;
@@ -201,28 +216,7 @@ class AppController {
         setInterval(() => { this.isOnline = net.isOnline(); }, 30000);
 
         try {
-            // Authentication & Config
-            const isAuthenticated = await this.checkAndAuthenticate();
-            
-            if (!isAuthenticated) {
-                // Wait for user to login via UI
-                return; 
-            }
-            
-            await this.sessionManager.fetchAndStoreConfig(this.userProfile.serverUserId);
-            this.startDashboardPolling();
-            
-            if (this.mainWindow) {
-                this.mainWindow.show();
-                this.refreshDashboard();
-            }
-
-            if (!this.isClockedIn) {
-                this.startClockInReminderChecks();
-            } else {
-                this.startMonitoring();
-            }
-
+            await this.login({ selectAccount: false });
         } catch (err) {
             log.error('[Init] Startup failed:', err);
             dialog.showErrorBox(this.getTranslation('startupErrorTitle'), err.message);
@@ -260,42 +254,56 @@ class AppController {
         const iconPath = isPackaged ? path.join(process.resourcesPath, 'icon.png') : path.join(__dirname, 'icon.png');
         this.tray = new Tray(nativeImage.createFromPath(iconPath));
         this.tray.setToolTip('Time Tracker');
-        this.tray.setContextMenu(Menu.buildFromTemplate([
-            { label: 'Show App', click: () => this.mainWindow.show() },
-            { type: 'separator' },
-            { label: 'Quit', click: () => { this.isShuttingDown = true; app.quit(); } }
-        ]));
+        this.updateTrayMenu();
         this.tray.on('double-click', () => this.mainWindow.show());
+    }
+
+    updateTrayMenu() {
+        if (!this.tray) return;
+        const template = [
+            { label: this.getTranslation('showApp'), click: () => this.mainWindow.show() },
+            { type: 'separator' }
+        ];
+
+        if (this.userProfile) {
+            template.push(
+                { label: this.getTranslation('switchAccount'), click: () => this.switchAccount() },
+                { label: this.getTranslation('signOut'), click: () => this.logout() },
+                { type: 'separator' }
+            );
+        } else {
+            template.push(
+                { label: this.getTranslation('signInDifferent'), click: () => this.login({ selectAccount: true }) },
+                { type: 'separator' }
+            );
+        }
+
+        template.push({
+            label: this.getTranslation('quitApp'),
+            click: () => { this.isShuttingDown = true; app.quit(); }
+        });
+        this.tray.setContextMenu(Menu.buildFromTemplate(template));
     }
 
     // --- Auth & Session ---
 
-    async checkAndAuthenticate() {
+    async checkAndAuthenticate({ selectAccount = false } = {}) {
         const sessionPath = path.join(app.getPath('userData'), 'session.json');
-        let profile = null;
 
         try {
-            // Load Session
             if (fs.existsSync(sessionPath)) {
                 try {
-                    const data = JSON.parse(fs.readFileSync(sessionPath, 'utf8'));
-                    if (data.loginDate === new Date().toISOString().slice(0, 10)) {
-                        profile = data.userProfile;
-                    }
+                    fs.unlinkSync(sessionPath);
                 } catch (err) {
-                    log.warn('[Auth] Invalid session file, clearing.');
+                    log.warn(`[Auth] Could not remove legacy session file: ${err.message}`);
                 }
             }
 
-            // Authenticate if no valid profile
-            if (!profile) {
-                const authResult = await authenticateWithMicrosoft();
-                profile = authResult.userProfile;
-                fs.writeFileSync(sessionPath, JSON.stringify({ 
-                    userProfile: profile, 
-                    loginDate: new Date().toISOString().slice(0, 10) 
-                }));
-            }
+            const authResult = await authenticateWithMicrosoft({
+                parentWindow: this.mainWindow,
+                selectAccount
+            });
+            const profile = authResult.userProfile;
 
             // Get Device ID
             let deviceId = await getWindowsMachineGuid();
@@ -342,6 +350,100 @@ class AppController {
             }
             return false;
         }
+    }
+
+    async login({ selectAccount = false } = {}) {
+        if (this.isAuthenticating) return false;
+        this.isAuthenticating = true;
+        this.sendAuthState();
+
+        try {
+            const isAuthenticated = await this.checkAndAuthenticate({ selectAccount });
+            if (!isAuthenticated) {
+                this.userProfile = null;
+                this.updateTrayMenu();
+                return false;
+            }
+
+            await this.sessionManager.fetchAndStoreConfig(this.userProfile.serverUserId);
+            this.startDashboardPolling();
+            this.mainWindow?.show();
+            await this.refreshDashboard();
+
+            if (!this.isClockedIn) this.startClockInReminderChecks();
+            else this.startMonitoring();
+
+            this.updateTrayMenu();
+            return true;
+        } finally {
+            this.isAuthenticating = false;
+            this.sendAuthState();
+        }
+    }
+
+    stopAuthenticatedRuntime() {
+        this.stopMonitoring();
+        this.stopClockInReminderChecks();
+        if (this.dashboardPollingInterval) clearInterval(this.dashboardPollingInterval);
+        this.dashboardPollingInterval = null;
+        this.isClockedIn = false;
+        this.isBreakActive = false;
+        this.isIdle = false;
+        this.activeIdleEntryId = null;
+        this.currentBreakStartTime = null;
+    }
+
+    sendAuthState() {
+        if (!this.mainWindow || this.mainWindow.isDestroyed()) return;
+        const email = this.userProfile?.mail || this.userProfile?.userPrincipalName || '';
+        this.mainWindow.webContents.send('auth-state-changed', {
+            status: this.isAuthenticating ? 'authenticating' : (this.userProfile ? 'authenticated' : 'signed-out'),
+            displayName: this.userProfile?.displayName || '',
+            email
+        });
+    }
+
+    async logout({ switchAccount = false } = {}) {
+        if (this.isClockedIn) {
+            await dialog.showMessageBox(this.mainWindow, {
+                type: 'warning',
+                title: this.getTranslation('accountChangeBlockedTitle'),
+                message: this.getTranslation('accountChangeBlockedBody')
+            });
+            return false;
+        }
+
+        this.stopAuthenticatedRuntime();
+        await signOutMicrosoft();
+        this.userProfile = null;
+        this.updateTrayMenu();
+        this.sendAuthState();
+        this.mainWindow?.show();
+
+        if (switchAccount) return this.login({ selectAccount: true });
+        return true;
+    }
+
+    async switchAccount() {
+        return this.logout({ switchAccount: true });
+    }
+
+    showAccountMenu() {
+        if (!this.mainWindow || this.mainWindow.isDestroyed()) return;
+        if (!this.userProfile) {
+            this.login({ selectAccount: true });
+            return;
+        }
+
+        const email = this.userProfile.mail || this.userProfile.userPrincipalName || '';
+        const menu = Menu.buildFromTemplate([
+            { label: this.userProfile.displayName || email, enabled: false },
+            ...(email && email !== this.userProfile.displayName ? [{ label: email, enabled: false }] : []),
+            { type: 'separator' },
+            { label: this.getTranslation('switchAccount'), click: () => this.switchAccount() },
+            { label: this.getTranslation('signOut'), click: () => this.logout() }
+        ]);
+        menu.popup({ window: this.mainWindow });
     }
 
     // --- State Management ---
@@ -577,9 +679,15 @@ class AppController {
 
     // --- IPC ---
     setupIpc() {
-        ipcMain.on('renderer-ready', () => this.refreshDashboard());
+        ipcMain.on('renderer-ready', () => {
+            this.sendAuthState();
+            this.refreshDashboard();
+        });
         ipcMain.on('minimize-app', () => this.mainWindow.hide());
         ipcMain.on('quit-app', () => { this.isShuttingDown = true; app.quit(); });
+        ipcMain.on('retry-startup', () => this.login({ selectAccount: false }));
+        ipcMain.on('show-account-menu', () => this.showAccountMenu());
+        ipcMain.on('sign-in-with-other-account', () => this.login({ selectAccount: true }));
         
         ipcMain.on('clock-action', async (event, action) => {
             if (action === 'clock_in') await this.handleClockInCheck();
@@ -599,6 +707,7 @@ class AppController {
         ipcMain.on('set-language', (e, { lang }) => {
             this.currentLanguage = lang;
             appConfigStore.set('language', lang);
+            this.updateTrayMenu();
             this.refreshDashboard();
         });
 

@@ -37,7 +37,10 @@ const translations = {
         breakModalMessage: "Your break exceeded the configured limit. Please provide a reason.",
         breakModalSubmit: "Submit",
         breakModalCancel: "Cancel",
-        breakModalPlaceholder: "e.g., Extended lunch..."
+        breakModalPlaceholder: "e.g., Extended lunch...",
+        signedOut: "Signed out",
+        signInDifferent: "Sign in with another account",
+        accountMenu: "Account"
     },
     de: { 
         workTracker: "Zeiterfassung",
@@ -60,7 +63,10 @@ const translations = {
         breakModalMessage: "Ihre Pause hat das konfigurierte Limit überschritten. Bitte geben Sie einen Grund an.",
         breakModalSubmit: "Senden",
         breakModalCancel: "Abbrechen",
-        breakModalPlaceholder: "z.B. Verlängerte Mittagspause..."
+        breakModalPlaceholder: "z.B. Verlängerte Mittagspause...",
+        signedOut: "Abgemeldet",
+        signInDifferent: "Mit anderem Benutzer anmelden",
+        accountMenu: "Konto"
     },
 };
 
@@ -81,6 +87,41 @@ function translatePage() {
     });
     if (ui.breakReasonInput) {
         ui.breakReasonInput.placeholder = getTranslation('breakModalPlaceholder');
+    }
+    if (ui.accountMenuBtn && !ui.accountMenuBtn.dataset.accountEmail) {
+        ui.accountMenuBtn.title = getTranslation('accountMenu');
+        ui.accountMenuBtn.setAttribute('aria-label', getTranslation('accountMenu'));
+    }
+}
+
+function handleAuthState(authState) {
+    if (!authState) return;
+
+    const isAuthenticating = authState.status === 'authenticating';
+    const isSignedOut = authState.status === 'signed-out';
+    ui.signedOutState?.classList.toggle('hidden', !isSignedOut);
+
+    if (isAuthenticating) {
+        ui.appContainer?.classList.add('hidden');
+        ui.loadingIndicator?.classList.remove('hidden');
+        if (ui.loadingMessage) ui.loadingMessage.textContent = 'Single Sign-On...';
+    } else if (isSignedOut) {
+        ui.appContainer?.classList.add('hidden');
+        ui.loadingIndicator?.classList.add('hidden');
+    } else {
+        ui.appContainer?.classList.remove('hidden');
+        ui.loadingIndicator?.classList.add('hidden');
+    }
+
+    if (authState.status === 'authenticated' && ui.accountMenuBtn) {
+        const accountLabel = [authState.displayName, authState.email].filter(Boolean).join(' - ');
+        ui.accountMenuBtn.dataset.accountEmail = authState.email || '';
+        ui.accountMenuBtn.title = accountLabel || getTranslation('accountMenu');
+        ui.accountMenuBtn.setAttribute('aria-label', ui.accountMenuBtn.title);
+    } else if (ui.accountMenuBtn) {
+        delete ui.accountMenuBtn.dataset.accountEmail;
+        ui.accountMenuBtn.title = getTranslation('accountMenu');
+        ui.accountMenuBtn.setAttribute('aria-label', ui.accountMenuBtn.title);
     }
 }
 
@@ -311,6 +352,8 @@ function setupEventListeners() {
     });
     
     ui.openDashboardBtn?.addEventListener('click', () => window.electronAPI.openDashboardWindow());
+    ui.accountMenuBtn?.addEventListener('click', () => window.electronAPI.showAccountMenu());
+    ui.manualSignInBtn?.addEventListener('click', () => window.electronAPI.signInWithOtherAccount());
 
     ui.languageToggleWrapper?.addEventListener('click', () => {
         const newLang = AppState.currentLanguage === 'de' ? 'en' : 'de';
@@ -386,6 +429,8 @@ function setupIpcHandlers() {
         ui.errorState?.classList.remove('hidden');
     });
 
+    window.electronAPI.onAuthStateChanged(handleAuthState);
+
     window.electronAPI.onClockInError((errorData) => {
         const translationKey = `error_${errorData.key}`;
         const message = getTranslation(translationKey, errorData.data);   
@@ -427,7 +472,10 @@ function initializeApp() {
         retryBtn: document.getElementById('retry-btn'),
         exitBtn: document.getElementById('exit-btn'),
         openDashboardBtn: document.getElementById('openDashboardBtn'),
-        minimizeBtn: document.getElementById('minimizeBtn')
+        minimizeBtn: document.getElementById('minimizeBtn'),
+        accountMenuBtn: document.getElementById('accountMenuBtn'),
+        signedOutState: document.getElementById('signed-out-state'),
+        manualSignInBtn: document.getElementById('manual-sign-in-btn')
     };
 
     if (typeof window.electronAPI === 'undefined') {

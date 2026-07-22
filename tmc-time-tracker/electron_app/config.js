@@ -25,7 +25,7 @@ module.exports = {
     OAUTH_AUTHORITY: process.env.OAUTH_AUTHORITY || 'https://login.microsoftonline.com/c753d4f6-12e5-4eae-a4a5-07b42cb19290',
     OAUTH_CLIENT_ID: process.env.OAUTH_CLIENT_ID || '29a2d157-e5eb-4905-acc2-5d664e040a9e', 
     OAUTH_CLIENT_SECRET: process.env.OAUTH_CLIENT_SECRET || '', 
-    OAUTH_REDIRECT_URI: process.env.OAUTH_REDIRECT_URI || '29a2d157-e5eb-4905-acc2-5d664e040a9e', 
+    OAUTH_REDIRECT_URI: process.env.OAUTH_REDIRECT_URI || 'http://localhost:8081/auth/callback',
 
     GH_TOKEN: process.env.GH_TOKEN || '', 
     DEV_AUTH_BYPASS: process.env.DEV_AUTH_BYPASS === '1',
