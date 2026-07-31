@@ -283,14 +283,10 @@ class EmployeeDashboard {
     }
 
     formatDecimal(val) {
-            const num = parseFloat(val);
-            if (isNaN(num)) return '00:00';
-
-            const totalMin = Math.round(num * 60);   // ← CHANGE HERE
-            const h = Math.floor(totalMin / 60).toString().padStart(2, '0');
-            const m = (totalMin % 60).toString().padStart(2, '0');
-            return `${h}:${m}`;
-        }
+        const num = parseFloat(val);
+        if (isNaN(num)) return '00:00';
+        return this.formatDuration(num * 3600);
+    }
 
 }
 

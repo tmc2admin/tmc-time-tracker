@@ -76,13 +76,19 @@ class ApiService {
             });
             return response.data;
         } catch (error) {
-            if (error.code && ['ECONNREFUSED', 'ENOTFOUND', 'ETIMEDOUT'].includes(error.code) || !error.response) {
+            if ((error.code && ['ECONNREFUSED', 'ENOTFOUND', 'ETIMEDOUT'].includes(error.code)) || !error.response) {
                 if (error.message && error.message.includes('Invalid URL')) {
                     throw new Error('Configuration Error: The server URL is invalid.');
                 }
                 throw new Error('Network error: Unable to connect to server.');
             }
-            throw new Error(error.response?.data?.message || error.message);
+
+            const responseData = error.response?.data || {};
+            const apiError = new Error(responseData.message || error.message);
+            apiError.status = error.response?.status;
+            apiError.code = responseData.code || error.code;
+            apiError.details = responseData;
+            throw apiError;
         }
     }
 
@@ -92,12 +98,20 @@ class ApiService {
         return this._request('get', `/api/v1/config/${userId}`);
     }
 
-    linkUser(microsoftOid, email, username, deviceId) {
+    linkUser(microsoftOid, email, username, deviceId, deviceName, confirmTakeover = false) {
         return this._request('post', '/api/electron_sso_login', { 
             microsoft_oid: microsoftOid, 
             email: email, 
             username: username,
-            mac_address: deviceId 
+            mac_address: deviceId,
+            device_name: deviceName,
+            confirm_takeover: confirmTakeover
+        });
+    }
+
+    logoutUser(microsoftOid) {
+        return this._request('post', '/api/electron_logout', {
+            microsoft_oid: microsoftOid
         });
     }
     

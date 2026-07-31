@@ -364,36 +364,41 @@ def receive_heartbeat_ping(microsoft_oid):
     Updates device session and global user heartbeat.
     """
     payload = request.get_json(silent=True) or {}
-    device_id = payload.get('device_id')
+    device_id = str(
+        payload.get('device_id')
+        or request.headers.get('X-Device-ID')
+        or ''
+    ).strip()
 
     user = User.query.filter_by(microsoft_oid=microsoft_oid).first()
     if not user:
         return jsonify({"message": "User not found"}), 404
 
-    # Check if user has an open session
-    active_entry = TimeEntry.query.filter_by(
-        user_id=user.id,
-        clock_out_time=None
-    ).first()
+    if not device_id:
+        return jsonify({
+            "code": "E_DEVICE_REQUIRED",
+            "message": "A device ID is required."
+        }), 400
 
-    if not active_entry:
-        log.warning(f"Heartbeat ping from clocked-out user: {user.email}")
-        return jsonify({"message": "User is not clocked in on server."}), 409
+    if not user.device_mac_address or user.device_mac_address != device_id:
+        return jsonify({
+            "code": "E_SESSION_REPLACED",
+            "message": "This desktop session was replaced by a login on another PC."
+        }), 409
 
-    now_utc = datetime.utcnow()
+    now_utc = datetime.now(pytz.utc).replace(tzinfo=None)
 
     # Update specific device session
-    if device_id:
-        device_session = UserDeviceSession.query.filter_by(
-            user_id=user.id,
-            device_id=device_id
-        ).first()
+    device_session = UserDeviceSession.query.filter_by(
+        user_id=user.id,
+        device_id=device_id
+    ).first()
 
-        if not device_session:
-            device_session = UserDeviceSession(user_id=user.id, device_id=device_id)
-            db.session.add(device_session)
+    if not device_session:
+        device_session = UserDeviceSession(user_id=user.id, device_id=device_id)
+        db.session.add(device_session)
 
-        device_session.last_heartbeat = now_utc
+    device_session.last_heartbeat = now_utc
 
     # Update global user heartbeat
     user.last_heartbeat_utc = now_utc

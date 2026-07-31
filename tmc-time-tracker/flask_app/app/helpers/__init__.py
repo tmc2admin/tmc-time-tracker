@@ -16,7 +16,8 @@ from .calculations import (
     calculate_break_duration, 
     calculate_idle_duration, 
     calculate_worked_hours, 
-    calculate_gross_hours
+    calculate_gross_hours,
+    calculate_entries_time_totals
 )
 
 from .status import (

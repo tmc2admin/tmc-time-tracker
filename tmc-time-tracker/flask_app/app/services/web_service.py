@@ -1,34 +1,40 @@
 # app/services/web_service.py
 
-import json
 import pytz
 import logging
 from datetime import datetime, time, timedelta
-from sqlalchemy import func, cast, Date, and_
+from sqlalchemy import or_
 from sqlalchemy.orm import joinedload
 from flask_babel import gettext as _
 
 # Import Models & Helpers
 from ..models import (db, TimeEntry, BreakEntry, IdleEntry, Holiday, 
-                      OvertimeAllocation, LeaveRequest, User)
-from ..helpers import (calculate_break_duration, calculate_idle_duration, 
-                       get_ongoing_duration, get_programmatic_status, 
+                      OvertimeAllocation, LeaveRequest)
+from ..helpers import (get_programmatic_status,
                        _get_consolidated_segments_for_user, utc_to_berlin_filter,
-                       _handle_stale_sessions_for_user)
+                       _handle_stale_sessions_for_user,
+                       calculate_entries_time_totals)
 
 BERLIN_TZ = pytz.timezone('Europe/Berlin')
 log = logging.getLogger(__name__)
+
+
+def _berlin_day_bounds(day):
+    start = BERLIN_TZ.localize(datetime.combine(day, time.min)).astimezone(pytz.utc)
+    next_day = day + timedelta(days=1)
+    end = BERLIN_TZ.localize(datetime.combine(next_day, time.min)).astimezone(pytz.utc)
+    return start, end
+
 
 class WebService:
 
     # --- DASHBOARD & STATS ---
 
     @staticmethod
-    @staticmethod
-    @staticmethod
     def get_dashboard_stats(user):
         """Fetches lists and scalar stats for the dashboard render."""
-        today = datetime.utcnow().date()
+        now_utc = datetime.now(pytz.utc)
+        today = now_utc.astimezone(BERLIN_TZ).date()
         current_year = today.year
         
         # ... (Recent Overtime & Recent Leaves queries remain the same) ...
@@ -79,17 +85,34 @@ class WebService:
         if active_entry:
             display_status = 'Active'
             active_break = BreakEntry.query.filter_by(time_entry_id=active_entry.id, break_end_time=None).first()
-            total_break = calculate_break_duration(active_entry.id).total_seconds()
-            total_idle = calculate_idle_duration(active_entry.id).total_seconds()
-            
-            ongoing_idle = IdleEntry.query.filter_by(time_entry_id=active_entry.id, idle_end_time=None).first()
-            if ongoing_idle:
-                total_idle += get_ongoing_duration(ongoing_idle.idle_start_time).total_seconds()
-            
-            now_utc = pytz.utc.localize(datetime.utcnow())
-            start_dt = pytz.utc.localize(active_entry.clock_in_time) if active_entry.clock_in_time.tzinfo is None else active_entry.clock_in_time
-            gross_duration = (now_utc - start_dt).total_seconds()
-            expected_out = start_dt + timedelta(hours=getattr(user, 'default_daily_hours', 8.0))
+            day_start_utc, day_end_utc = _berlin_day_bounds(today)
+            today_entries = TimeEntry.query.options(
+                joinedload(TimeEntry.break_entries),
+                joinedload(TimeEntry.idle_entries)
+            ).filter(
+                TimeEntry.user_id == user.id,
+                TimeEntry.clock_in_time < day_end_utc,
+                or_(
+                    TimeEntry.clock_out_time.is_(None),
+                    TimeEntry.clock_out_time > day_start_utc
+                )
+            ).all()
+            totals = calculate_entries_time_totals(
+                today_entries,
+                now_utc=now_utc,
+                window_start=day_start_utc,
+                window_end=day_end_utc
+            )
+            total_break = totals['pause_seconds']
+            total_idle = totals['idle_seconds']
+            gross_duration = totals['gross_seconds']
+            remaining_seconds = max(
+                0,
+                getattr(user, 'default_daily_hours', 8.0) * 3600 - totals['net_seconds']
+            )
+            expected_out = (
+                now_utc + timedelta(seconds=remaining_seconds)
+            ).astimezone(BERLIN_TZ)
 
         return {
             'recent_ot': recent_ot,
@@ -128,58 +151,54 @@ class WebService:
         if not active_entry:
             return data
 
-        # Fetch all work for today to aggregate totals
-        workday_start = active_entry.clock_in_time.date()
-        all_today = TimeEntry.query.filter(
+        today = now_utc.astimezone(BERLIN_TZ).date()
+        day_start_utc, day_end_utc = _berlin_day_bounds(today)
+        all_today = TimeEntry.query.options(
+            joinedload(TimeEntry.break_entries),
+            joinedload(TimeEntry.idle_entries)
+        ).filter(
             TimeEntry.user_id == user.id,
-            cast(TimeEntry.clock_in_time, Date) >= workday_start
+            TimeEntry.clock_in_time < day_end_utc,
+            or_(
+                TimeEntry.clock_out_time.is_(None),
+                TimeEntry.clock_out_time > day_start_utc
+            )
         ).all()
 
         if not all_today: return data
 
-        # Aggregate Metrics
-        first_in = min(e.clock_in_time for e in all_today)
-        total_break = 0
-        total_idle = 0 # Non-meeting
-        total_meeting = 0
+        totals = calculate_entries_time_totals(
+            all_today,
+            now_utc=now_utc,
+            window_start=day_start_utc,
+            window_end=day_end_utc
+        )
+        first_in_utc = totals['first_clock_in']
+        gross_seconds = totals['gross_seconds']
+        non_prod_seconds = totals['pause_seconds']
+        prod_seconds = totals['net_seconds']
+        remaining_seconds = max(
+            0,
+            user.default_daily_hours * 3600 - prod_seconds
+        )
+        exp_out_time = now_utc + timedelta(seconds=remaining_seconds)
+        active_clock_in = active_entry.clock_in_time
+        if active_clock_in.tzinfo is None:
+            active_clock_in = pytz.utc.localize(active_clock_in)
+        else:
+            active_clock_in = active_clock_in.astimezone(pytz.utc)
 
-        for entry in all_today:
-            # Sum Breaks
-            for b in entry.break_entries:
-                end = b.break_end_time or now_utc.replace(tzinfo=None)
-                total_break += (end - b.break_start_time).total_seconds()
-            # Sum Idle
-            for i in entry.idle_entries:
-                end = i.idle_end_time or now_utc.replace(tzinfo=None)
-                dur = (end - i.idle_start_time).total_seconds()
-                if i.reason != "In Meeting": total_idle += dur
-                else: total_meeting += dur
-
-        first_in_utc = pytz.utc.localize(first_in) if first_in.tzinfo is None else first_in
-        
-        # P1d: Gross (First In -> Now)
-        gross_seconds = (now_utc - first_in_utc).total_seconds()
-        
-        # P1c: Non-Productive
-        non_prod_seconds = total_break + total_idle
-        
-        # P1b: Productive
-        prod_seconds = gross_seconds - non_prod_seconds
-
-        # Expected Out
-        exp_out_time = first_in_utc + timedelta(hours=user.default_daily_hours) + timedelta(seconds=(total_break + total_idle))
-        
         data.update({
             'active_entry_id': active_entry.id,
             'status': get_programmatic_status(user.id, active_entry),
-            'current_session_clock_in_time': pytz.utc.localize(active_entry.clock_in_time).isoformat(),
+            'current_session_clock_in_time': active_clock_in.isoformat(),
             'first_clock_in_time_of_day': first_in_utc.isoformat(),
             'net_worked_hours': prod_seconds / 3600.0,
             'total_non_productive_seconds': non_prod_seconds,
             'total_gross_duration_seconds': gross_seconds,
             'expected_clock_out': exp_out_time.astimezone(BERLIN_TZ).strftime('%H:%M'),
-            'total_break_seconds_today': total_break,
-            'total_completed_idle_duration_seconds': total_idle
+            'total_break_seconds_today': totals['break_seconds'],
+            'total_completed_idle_duration_seconds': totals['idle_seconds']
         })
 
         # Add ongoing timestamps for UI tickers
@@ -198,50 +217,34 @@ class WebService:
     @staticmethod
     def get_daily_summary(user_id, start_date, end_date):
         """Calculates gross, productive, and break hours for a date range."""
-        start_dt = pytz.utc.localize(datetime.combine(start_date, time.min))
-        end_dt = pytz.utc.localize(datetime.combine(end_date, time.max))
+        start_dt, _ = _berlin_day_bounds(start_date)
+        _, end_dt = _berlin_day_bounds(end_date)
 
-        entries = TimeEntry.query.filter(
+        entries = TimeEntry.query.options(
+            joinedload(TimeEntry.break_entries),
+            joinedload(TimeEntry.idle_entries)
+        ).filter(
             TimeEntry.user_id == user_id,
-            TimeEntry.clock_in_time >= start_dt, TimeEntry.clock_in_time <= end_dt
-        ).options(joinedload(TimeEntry.break_entries), joinedload(TimeEntry.idle_entries)).all()
+            TimeEntry.clock_in_time < end_dt,
+            or_(
+                TimeEntry.clock_out_time.is_(None),
+                TimeEntry.clock_out_time > start_dt
+            )
+        ).all()
 
         if not entries:
             return {'gross_worked_hours': 0, 'productive_worked_hours': 0, 'total_break_time_hours': 0}
 
-        total_gross = 0
-        total_break = 0
-        total_idle = 0
-        now_utc = datetime.now(pytz.utc)
-
-        for e in entries:
-            e_start = e.clock_in_time.replace(tzinfo=pytz.utc)
-            e_end = e.clock_out_time.replace(tzinfo=pytz.utc) if e.clock_out_time else now_utc
-            
-            total_gross += (e_end - e_start).total_seconds()
-
-            # Sum Breaks
-            for b in e.break_entries:
-                b_start = b.break_start_time.replace(tzinfo=pytz.utc)
-                b_end = b.break_end_time.replace(tzinfo=pytz.utc) if b.break_end_time else now_utc
-                # Clamp
-                eff_start = max(b_start, e_start)
-                eff_end = min(b_end, e_end)
-                total_break += max(0, (eff_end - eff_start).total_seconds())
-
-            # Sum Idle (excluding meetings)
-            for i in e.idle_entries:
-                if i.reason != "In Meeting":
-                    i_start = i.idle_start_time.replace(tzinfo=pytz.utc)
-                    i_end = i.idle_end_time.replace(tzinfo=pytz.utc) if i.idle_end_time else now_utc
-                    eff_start = max(i_start, e_start)
-                    eff_end = min(i_end, e_end)
-                    total_idle += max(0, (eff_end - eff_start).total_seconds())
+        totals = calculate_entries_time_totals(
+            entries,
+            window_start=start_dt,
+            window_end=end_dt
+        )
 
         return {
-            'gross_worked_hours': total_gross / 3600.0,
-            'productive_worked_hours': max(0, total_gross - total_break - total_idle) / 3600.0,
-            'total_break_time_hours': total_break / 3600.0
+            'gross_worked_hours': totals['gross_seconds'] / 3600.0,
+            'productive_worked_hours': totals['net_seconds'] / 3600.0,
+            'total_break_time_hours': totals['pause_seconds'] / 3600.0
         }
 
     @staticmethod
@@ -297,61 +300,40 @@ class WebService:
         now_utc = datetime.now(pytz.utc)
 
         while curr <= end_date:
-            day_start_utc = BERLIN_TZ.localize(datetime.combine(curr, time.min)).astimezone(pytz.utc)
-            day_end_utc = BERLIN_TZ.localize(datetime.combine(curr, time.max)).astimezone(pytz.utc)
+            day_start_utc, day_end_utc = _berlin_day_bounds(curr)
             
             entries = TimeEntry.query.options(joinedload(TimeEntry.break_entries), joinedload(TimeEntry.idle_entries))\
-                .filter(TimeEntry.user_id == user_id, TimeEntry.clock_in_time >= day_start_utc, TimeEntry.clock_in_time <= day_end_utc).all()
+                .filter(
+                    TimeEntry.user_id == user_id,
+                    TimeEntry.clock_in_time < day_end_utc,
+                    or_(
+                        TimeEntry.clock_out_time.is_(None),
+                        TimeEntry.clock_out_time > day_start_utc
+                    )
+                ).all()
 
             if not entries:
                 curr += timedelta(days=1); continue
 
-            # Calc Day Bounds
-            first_in = min(e.clock_in_time.replace(tzinfo=pytz.utc) for e in entries)
-            
-            end_candidates = [e.clock_out_time.replace(tzinfo=pytz.utc) if e.clock_out_time else now_utc for e in entries]
-            last_out = min(max(end_candidates), day_end_utc) # Cap at EOD
+            totals = calculate_entries_time_totals(
+                entries,
+                now_utc=now_utc,
+                window_start=day_start_utc,
+                window_end=day_end_utc
+            )
+            first_in = totals['first_clock_in']
+            last_out = totals['last_clock_out']
 
-            # Display
             is_ongoing = any(e.clock_out_time is None for e in entries)
             last_out_disp = _('Ongoing') if is_ongoing else utc_to_berlin_filter(last_out, format='%H:%M')
 
-            total_gross = max(0, (last_out - first_in).total_seconds())
-            total_break = 0
-            total_idle = 0
-
-            # Calc Non-Productive (Summed per entry)
-            for e in entries:
-                e_start = e.clock_in_time.replace(tzinfo=pytz.utc)
-                e_end = e.clock_out_time.replace(tzinfo=pytz.utc) if e.clock_out_time else last_out
-                e_end = min(e_end, day_end_utc)
-
-                # Helper to calc overlap
-                def calc_overlap(s, e, boundary_s, boundary_e):
-                    eff_s = max(s, boundary_s)
-                    eff_e = min(e, boundary_e)
-                    return max(0, (eff_e - eff_s).total_seconds())
-
-                for b in e.break_entries:
-                    b_s = b.break_start_time.replace(tzinfo=pytz.utc)
-                    b_e = b.break_end_time.replace(tzinfo=pytz.utc) if b.break_end_time else last_out
-                    total_break += calc_overlap(b_s, b_e, e_start, e_end)
-
-                for i in e.idle_entries:
-                    if i.reason != "In Meeting":
-                        i_s = i.idle_start_time.replace(tzinfo=pytz.utc)
-                        i_e = i.idle_end_time.replace(tzinfo=pytz.utc) if i.idle_end_time else last_out
-                        total_idle += calc_overlap(i_s, i_e, e_start, e_end)
-
-            productive = total_gross - total_break - total_idle
-            
             report_data.append({
                 'date': curr.strftime('%d.%m.%Y'),
                 'clock_in': utc_to_berlin_filter(first_in, format='%H:%M'),
                 'clock_out': last_out_disp,
-                'gross_session_hours': total_gross / 3600.0,
-                'net_hours_worked': max(0, productive) / 3600.0,
-                'break_hours': total_break / 3600.0
+                'gross_session_hours': totals['gross_seconds'] / 3600.0,
+                'net_hours_worked': totals['net_seconds'] / 3600.0,
+                'break_hours': totals['pause_seconds'] / 3600.0
             })
             curr += timedelta(days=1)
             

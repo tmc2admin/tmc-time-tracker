@@ -3,6 +3,7 @@
 const { app, BrowserWindow, powerMonitor, ipcMain, Tray, Menu, nativeImage, dialog, Notification, net, powerSaveBlocker, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const log = require('electron-log');
 const Store = require('electron-store');
 const { exec } = require('child_process');
@@ -55,7 +56,14 @@ const appTranslations = {
         signInDifferent: "Sign in with another account...",
         quitApp: "Quit",
         accountChangeBlockedTitle: "Clock out first",
-        accountChangeBlockedBody: "Please clock out before signing out or switching accounts."
+        accountChangeBlockedBody: "Please clock out before signing out or switching accounts.",
+        activeSessionTitle: "Account active on another PC",
+        activeSessionBody: "This account is already signed in on {device}. If you continue, the Time Tracker app will be signed out there.",
+        anotherPc: "another PC",
+        continueOnThisPc: "Continue on this PC",
+        cancel: "Cancel",
+        sessionReplacedTitle: "Signed out",
+        sessionReplacedBody: "This account was signed in on another PC. The Time Tracker app has been signed out here. An ongoing time entry remains active."
     },
     de: {
         clockOutDetectedTitle: "Ausstempeln erkannt",
@@ -79,7 +87,14 @@ const appTranslations = {
         signInDifferent: "Mit anderem Benutzer anmelden...",
         quitApp: "Beenden",
         accountChangeBlockedTitle: "Zuerst ausstempeln",
-        accountChangeBlockedBody: "Bitte stempeln Sie sich aus, bevor Sie sich abmelden oder den Benutzer wechseln."
+        accountChangeBlockedBody: "Bitte stempeln Sie sich aus, bevor Sie sich abmelden oder den Benutzer wechseln.",
+        activeSessionTitle: "Konto auf einem anderen PC aktiv",
+        activeSessionBody: "Dieses Konto ist bereits auf {device} angemeldet. Wenn Sie fortfahren, wird die Time-Tracker-App dort abgemeldet.",
+        anotherPc: "einem anderen PC",
+        continueOnThisPc: "Auf diesem PC fortfahren",
+        cancel: "Abbrechen",
+        sessionReplacedTitle: "Abgemeldet",
+        sessionReplacedBody: "Dieses Konto wurde auf einem anderen PC angemeldet. Die Time-Tracker-App wurde hier abgemeldet. Eine laufende Zeiterfassung bleibt bestehen."
     }
 };
 
@@ -134,9 +149,11 @@ class AppController {
         
         // Timers
         this.dashboardPollingInterval = null;
-        this.heartbeatInterval = null;
+        this.authenticationHeartbeatInterval = null;
         this.activityCheckInterval = null;
         this.clockInReminderInterval = null;
+        this.isHandlingSessionReplacement = false;
+        this.isHeartbeatRequestPending = false;
         
         this.lastUserActivityMonotonic = this.getMonotonicNow();
     }
@@ -305,36 +322,51 @@ class AppController {
             });
             const profile = authResult.userProfile;
 
-            // Get Device ID
-            let deviceId = await getWindowsMachineGuid();
-
-            if (!deviceId) {
-                deviceId = await new Promise((resolve) => {
-                    macaddress.one((err, mac) => {
-                        if (err || !mac) {
-                            log.warn('[Auth] Failed to retrieve MAC address:', err);
-                            resolve(null);
-                        } else {
-                            resolve(mac);
-                        }
-                    });
-                });
-            }
-
-            if (!deviceId) {
-                log.warn('[Auth] Critical: No Device ID found. Using fallback.');
-                deviceId = `fallback-${profile.id}-${Date.now()}`;
-            }
+            const deviceId = this.deviceId || await this.getOrGenerateDeviceId();
+            const deviceName = os.hostname();
 
             log.info(`[Auth] Linking user with Device ID: ${deviceId}`);
 
-            // Link User
-            const linkResult = await this.apiService.linkUser(
-                profile.id, 
-                profile.mail || profile.userPrincipalName, 
-                profile.displayName, 
-                deviceId
-            );
+            let linkResult;
+            try {
+                linkResult = await this.apiService.linkUser(
+                    profile.id,
+                    profile.mail || profile.userPrincipalName,
+                    profile.displayName,
+                    deviceId,
+                    deviceName
+                );
+            } catch (error) {
+                if (error.code !== 'E_ACTIVE_SESSION') throw error;
+
+                const previousDevice = error.details?.previous_device_name || this.getTranslation('anotherPc');
+                const response = await dialog.showMessageBox(this.mainWindow, {
+                    type: 'warning',
+                    title: this.getTranslation('activeSessionTitle'),
+                    message: this.getTranslation('activeSessionBody', { device: previousDevice }),
+                    buttons: [
+                        this.getTranslation('continueOnThisPc'),
+                        this.getTranslation('cancel')
+                    ],
+                    defaultId: 1,
+                    cancelId: 1,
+                    noLink: true
+                });
+
+                if (response.response !== 0) {
+                    await signOutMicrosoft();
+                    return false;
+                }
+
+                linkResult = await this.apiService.linkUser(
+                    profile.id,
+                    profile.mail || profile.userPrincipalName,
+                    profile.displayName,
+                    deviceId,
+                    deviceName,
+                    true
+                );
+            }
             
             if (linkResult) {
                 profile.serverUserId = linkResult.user_id || linkResult.id || linkResult.user?.id;
@@ -366,6 +398,7 @@ class AppController {
             }
 
             await this.sessionManager.fetchAndStoreConfig(this.userProfile.serverUserId);
+            this.startAuthenticationHeartbeat();
             this.startDashboardPolling();
             this.mainWindow?.show();
             await this.refreshDashboard();
@@ -382,6 +415,7 @@ class AppController {
     }
 
     stopAuthenticatedRuntime() {
+        this.stopAuthenticationHeartbeat();
         this.stopMonitoring();
         this.stopClockInReminderChecks();
         if (this.dashboardPollingInterval) clearInterval(this.dashboardPollingInterval);
@@ -391,6 +425,73 @@ class AppController {
         this.isIdle = false;
         this.activeIdleEntryId = null;
         this.currentBreakStartTime = null;
+    }
+
+    startAuthenticationHeartbeat() {
+        this.stopAuthenticationHeartbeat();
+        this.sendAuthenticationHeartbeat();
+        this.authenticationHeartbeatInterval = setInterval(
+            () => this.sendAuthenticationHeartbeat(),
+            15000
+        );
+    }
+
+    stopAuthenticationHeartbeat() {
+        if (this.authenticationHeartbeatInterval) {
+            clearInterval(this.authenticationHeartbeatInterval);
+        }
+        this.authenticationHeartbeatInterval = null;
+        this.isHeartbeatRequestPending = false;
+    }
+
+    async sendAuthenticationHeartbeat() {
+        if (
+            !this.userProfile
+            || !this.isOnline
+            || this.isHeartbeatRequestPending
+            || this.isHandlingSessionReplacement
+        ) {
+            return;
+        }
+
+        this.isHeartbeatRequestPending = true;
+        try {
+            await this.apiService.sendHeartbeatPing(this.userProfile.id);
+        } catch (error) {
+            if (error.code === 'E_SESSION_REPLACED') {
+                await this.handleSessionReplacement();
+            } else {
+                log.warn(`[Auth] Heartbeat failed: ${error.message}`);
+            }
+        } finally {
+            this.isHeartbeatRequestPending = false;
+        }
+    }
+
+    async handleSessionReplacement() {
+        if (this.isHandlingSessionReplacement || !this.userProfile) return;
+        this.isHandlingSessionReplacement = true;
+
+        this.stopAuthenticatedRuntime();
+        this.userProfile = null;
+
+        try {
+            await signOutMicrosoft();
+        } catch (error) {
+            log.warn(`[Auth] Could not clear Microsoft session after replacement: ${error.message}`);
+        }
+
+        this.updateTrayMenu();
+        this.sendAuthState();
+        this.mainWindow?.show();
+
+        await dialog.showMessageBox(this.mainWindow, {
+            type: 'warning',
+            title: this.getTranslation('sessionReplacedTitle'),
+            message: this.getTranslation('sessionReplacedBody')
+        });
+
+        this.isHandlingSessionReplacement = false;
     }
 
     sendAuthState() {
@@ -411,6 +512,15 @@ class AppController {
                 message: this.getTranslation('accountChangeBlockedBody')
             });
             return false;
+        }
+
+        const microsoftOid = this.userProfile?.id;
+        if (microsoftOid && this.isOnline) {
+            try {
+                await this.apiService.logoutUser(microsoftOid);
+            } catch (error) {
+                log.warn(`[Auth] Server logout failed: ${error.message}`);
+            }
         }
 
         this.stopAuthenticatedRuntime();
@@ -499,20 +609,12 @@ class AppController {
         if (!this.tracker) return;
         this.tracker.start();
         
-        if (this.heartbeatInterval) clearInterval(this.heartbeatInterval);
-        this.heartbeatInterval = setInterval(() => {
-            if (this.isOnline) {
-                this.apiService.sendHeartbeatPing(this.userProfile.id).catch(() => {});
-            }
-        }, 120000);
-        
         if (this.activityCheckInterval) clearInterval(this.activityCheckInterval);
         this.activityCheckInterval = setInterval(() => this.checkIdleStateLoop(), 5000);
     }
 
     stopMonitoring() {
         if (this.tracker) this.tracker.stop();
-        if (this.heartbeatInterval) clearInterval(this.heartbeatInterval);
         if (this.activityCheckInterval) clearInterval(this.activityCheckInterval);
         this.sessionManager.cancelAutoClockOut();
     }

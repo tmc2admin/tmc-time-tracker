@@ -4,7 +4,7 @@ import json
 import logging
 from datetime import datetime, timedelta, time
 from sqlalchemy.orm import joinedload
-from sqlalchemy import func, cast, Date  # Added missing imports
+from sqlalchemy import or_
 import pytz
 from flask import Blueprint, request, jsonify, current_app
 from flask_babel import gettext as _
@@ -18,7 +18,7 @@ from ..models import (
 from ..helpers import (
     _handle_stale_sessions_for_user, calculate_worked_hours, 
     finalize_idle_period, send_clock_out_email, get_programmatic_status,
-    _get_consolidated_segments_for_user
+    _get_consolidated_segments_for_user, calculate_entries_time_totals
 )
 from ..validation_models import ClockInPayload, ClockOutPayload
 
@@ -280,7 +280,14 @@ def dashboard_data_for_electron(user_id):
     _handle_stale_sessions_for_user(user.id)
 
     now_utc = datetime.now(pytz.utc)
-    today_utc_date = now_utc.date()
+    berlin_tz = get_berlin_tz()
+    today_berlin = now_utc.astimezone(berlin_tz).date()
+    day_start_utc = berlin_tz.localize(
+        datetime.combine(today_berlin, time.min)
+    ).astimezone(pytz.utc)
+    day_end_utc = berlin_tz.localize(
+        datetime.combine(today_berlin + timedelta(days=1), time.min)
+    ).astimezone(pytz.utc)
     config = CompanyConfig.query.first()
 
     # Fetch all of today's entries with relations in one query
@@ -289,7 +296,11 @@ def dashboard_data_for_electron(user_id):
         joinedload(TimeEntry.idle_entries)
     ).filter(
         TimeEntry.user_id == user.id,
-        cast(TimeEntry.clock_in_time, Date) == today_utc_date
+        TimeEntry.clock_in_time < day_end_utc,
+        or_(
+            TimeEntry.clock_out_time.is_(None),
+            TimeEntry.clock_out_time > day_start_utc
+        )
     ).order_by(TimeEntry.clock_in_time.desc()).all()
 
     # Find active entry
@@ -302,34 +313,23 @@ def dashboard_data_for_electron(user_id):
     session_segments = []
     if today_entries:
         session_segments = _get_consolidated_segments_for_user(
-            user.id, today_utc_date, today_utc_date
+            user.id, today_berlin, today_berlin
         ) or []
 
-    # Calculate totals in memory
-    total_gross_seconds = 0
-    total_break_seconds = 0
-    total_idle_seconds = 0
-
-    for e in today_entries:
-        end_time = e.clock_out_time or now_utc.replace(tzinfo=None)
-        total_gross_seconds += (end_time - e.clock_in_time).total_seconds()
-
-        for b in e.break_entries:
-            b_end = b.break_end_time or now_utc.replace(tzinfo=None)
-            total_break_seconds += (b_end - b.break_start_time).total_seconds()
-        
-        for i in e.idle_entries:
-            if i.reason != "In Meeting":
-                i_end = i.idle_end_time or now_utc.replace(tzinfo=None)
-                total_idle_seconds += (i_end - i.idle_start_time).total_seconds()
+    totals = calculate_entries_time_totals(
+        today_entries,
+        now_utc=now_utc,
+        window_start=day_start_utc,
+        window_end=day_end_utc
+    )
 
     daily_summary = {
-        'date': today_utc_date.strftime('%Y-%m-%d'),
-        'total_break_seconds': total_break_seconds,
-        'total_idle_seconds': total_idle_seconds,
-        'net_worked_hours': round(
-            max(0, total_gross_seconds - total_break_seconds - total_idle_seconds) / 3600, 2
-        )
+        'date': today_berlin.strftime('%Y-%m-%d'),
+        'total_break_seconds': totals['break_seconds'],
+        'total_idle_seconds': totals['idle_seconds'],
+        'total_pause_seconds': totals['pause_seconds'],
+        'gross_worked_hours': round(totals['gross_seconds'] / 3600, 2),
+        'net_worked_hours': round(totals['net_seconds'] / 3600, 2)
     }
 
     # Extract active states
