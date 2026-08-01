@@ -1,5 +1,13 @@
 # Desktop release process
 
+## Version 2.7.6
+
+- Starts time tracking automatically after meaningful local user input inside the employee schedule.
+- Adds per-employee working hours and working days to the admin area.
+- Uses server time for clock-out and separates device liveness from verified user input.
+- Flags mouse-movement-only patterns for integrity review while storing no key content.
+- Keeps the activity fallback for clients up to version 2.7.5 during the rollout.
+
 ## Version and file name
 
 - Continue the semantic patch sequence from the latest version.

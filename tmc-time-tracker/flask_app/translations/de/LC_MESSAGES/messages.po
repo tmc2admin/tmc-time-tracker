@@ -1730,3 +1730,44 @@ msgstr ""
 #~ msgid "Add your first provision using the form above."
 #~ msgstr ""
 
+msgid "Employees"
+msgstr "Mitarbeiter"
+
+msgid "Employee Working Hours"
+msgstr "Mitarbeiter-Arbeitszeiten"
+
+msgid "Automatic time tracking starts only after user activity within the configured schedule."
+msgstr "Die automatische Zeiterfassung startet erst nach Benutzeraktivität innerhalb der festgelegten Arbeitszeit."
+
+msgid "Online"
+msgstr "Online"
+
+msgid "Daily Hours"
+msgstr "Tägliche Stunden"
+
+msgid "Working Days"
+msgstr "Arbeitstage"
+
+msgid "No employees found."
+msgstr "Keine Mitarbeiter gefunden."
+
+msgid "Integrity"
+msgstr "Prüfstatus"
+
+msgid "Employee working hours updated successfully."
+msgstr "Die Arbeitszeiten des Mitarbeiters wurden aktualisiert."
+
+msgid "Please check the entered working hours."
+msgstr "Bitte prüfen Sie die eingegebenen Arbeitszeiten."
+
+msgid "Working hours end must be later than working hours start."
+msgstr "Das Arbeitsende muss nach dem Arbeitsbeginn liegen."
+
+msgid "Clock-in is not allowed on this working day."
+msgstr "An diesem Arbeitstag ist das Einstempeln nicht erlaubt."
+
+msgid "Clock-in is only allowed between %(start)s and %(end)s."
+msgstr "Das Einstempeln ist nur zwischen %(start)s und %(end)s erlaubt."
+
+msgid "Automatic clock-in requires recent user activity."
+msgstr "Das automatische Einstempeln erfordert eine aktuelle Benutzeraktivität."

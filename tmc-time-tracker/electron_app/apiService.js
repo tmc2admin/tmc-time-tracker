@@ -127,10 +127,13 @@ class ApiService {
 
     // --- Clock In / Out (api_time) ---
 
-    clockIn(microsoftOid, locationData = null, clientVersion = null) {
+    clockIn(microsoftOid, locationData = null, clientVersion = null, options = {}) {
         return this._request('post', `/api/clock_in_for_electron/${microsoftOid}`, { 
             location: locationData,
-            client_version: clientVersion 
+            client_version: clientVersion,
+            automatic: !!options.automatic,
+            activity_proof: options.activityProof || null,
+            timestamp: new Date().toISOString()
         });
     }
 
@@ -196,8 +199,10 @@ class ApiService {
         });
     }
 
-    sendHeartbeatPing(microsoftOid) {
-        return this._request('post', `/api/heartbeat_ping/${microsoftOid}`, {});
+    sendHeartbeatPing(microsoftOid, activityEvidence = {}) {
+        return this._request('post', `/api/heartbeat_ping/${microsoftOid}`, {
+            activity_evidence: activityEvidence
+        });
     }
 
     getActivitySegments(userId, date) {

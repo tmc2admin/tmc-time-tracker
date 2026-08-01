@@ -131,6 +131,9 @@ function renderActiveSessions(data) {
                 <td class="py-3 px-4 text-sm"><span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${statusClass}">${s.status}</span></td>
                 <td class="py-3 px-4 text-sm text-gray-600">${s.location}</td>
                 <td class="py-3 px-4 text-sm text-gray-500">${s.app_version}</td>
+                <td class="py-3 px-4 text-sm">${s.integrity_review_required
+                    ? '<span class="px-2 py-1 text-xs font-semibold bg-amber-100 text-amber-800">Prüfung empfohlen</span>'
+                    : '<span class="text-gray-500">Unauffällig</span>'}</td>
                 <td class="py-3 px-4 text-sm text-gray-600 font-mono">${s.expected_clock_out}</td>
             </tr>`;
         });

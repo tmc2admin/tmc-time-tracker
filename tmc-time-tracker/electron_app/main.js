@@ -63,7 +63,9 @@ const appTranslations = {
         continueOnThisPc: "Continue on this PC",
         cancel: "Cancel",
         sessionReplacedTitle: "Signed out",
-        sessionReplacedBody: "This account was signed in on another PC. The Time Tracker app has been signed out here. An ongoing time entry remains active."
+        sessionReplacedBody: "This account was signed in on another PC. The Time Tracker app has been signed out here. An ongoing time entry remains active.",
+        autoClockInTitle: "Time tracking started",
+        autoClockInBody: "Your time tracking was started automatically after user activity was detected."
     },
     de: {
         clockOutDetectedTitle: "Ausstempeln erkannt",
@@ -94,7 +96,9 @@ const appTranslations = {
         continueOnThisPc: "Auf diesem PC fortfahren",
         cancel: "Abbrechen",
         sessionReplacedTitle: "Abgemeldet",
-        sessionReplacedBody: "Dieses Konto wurde auf einem anderen PC angemeldet. Die Time-Tracker-App wurde hier abgemeldet. Eine laufende Zeiterfassung bleibt bestehen."
+        sessionReplacedBody: "Dieses Konto wurde auf einem anderen PC angemeldet. Die Time-Tracker-App wurde hier abgemeldet. Eine laufende Zeiterfassung bleibt bestehen.",
+        autoClockInTitle: "Zeiterfassung gestartet",
+        autoClockInBody: "Ihre Zeiterfassung wurde nach erkannter Benutzeraktivität automatisch gestartet."
     }
 };
 
@@ -139,6 +143,11 @@ class AppController {
         this.activeIdleEntryId = null;
         this.currentBreakStartTime = null;
         this.automationConfig = null;
+        this.hasClockedInToday = false;
+        this.autoClockInAttemptPending = false;
+        this.lastAutoClockInAttemptAt = 0;
+        this.lastPointerPosition = null;
+        this.inputActivity = this.createEmptyInputActivity();
         
         // Initialize Services
         this.tracker = new ActivityTracker(this); 
@@ -156,6 +165,18 @@ class AppController {
         this.isHeartbeatRequestPending = false;
         
         this.lastUserActivityMonotonic = this.getMonotonicNow();
+    }
+
+    createEmptyInputActivity() {
+        return {
+            keydown: 0,
+            mousedown: 0,
+            wheel: 0,
+            mousemove: 0,
+            mouse_distance: 0,
+            active_window_changes: 0,
+            interval_started_at: Date.now()
+        };
     }
 
     getMonotonicNow() {
@@ -423,8 +444,10 @@ class AppController {
         this.isClockedIn = false;
         this.isBreakActive = false;
         this.isIdle = false;
+        this.hasClockedInToday = false;
         this.activeIdleEntryId = null;
         this.currentBreakStartTime = null;
+        this.autoClockInAttemptPending = false;
     }
 
     startAuthenticationHeartbeat() {
@@ -456,7 +479,16 @@ class AppController {
 
         this.isHeartbeatRequestPending = true;
         try {
-            await this.apiService.sendHeartbeatPing(this.userProfile.id);
+            const evidence = {
+                ...this.inputActivity,
+                system_idle_seconds: powerMonitor.getSystemIdleTime(),
+                interval_seconds: Math.max(
+                    1,
+                    Math.round((Date.now() - this.inputActivity.interval_started_at) / 1000)
+                )
+            };
+            await this.apiService.sendHeartbeatPing(this.userProfile.id, evidence);
+            this.inputActivity = this.createEmptyInputActivity();
         } catch (error) {
             if (error.code === 'E_SESSION_REPLACED') {
                 await this.handleSessionReplacement();
@@ -579,6 +611,7 @@ class AppController {
         
         const wasClockedIn = this.isClockedIn;
         this.isClockedIn = !!data.is_clocked_in;
+        this.hasClockedInToday = !!data.has_clocked_in_today;
         this.isBreakActive = !!data.is_break_active;
         this.isIdle = !!data.is_idle_active;
         this.activeIdleEntryId = data.active_idle_entry_id;
@@ -631,7 +664,11 @@ class AppController {
             }
         }
 
-        const idleMins = (this.getMonotonicNow() - this.lastUserActivityMonotonic) / 60000;
+        const meaningfulInputIdleMins = (
+            this.getMonotonicNow() - this.lastUserActivityMonotonic
+        ) / 60000;
+        const osIdleMins = powerMonitor.getSystemIdleTime() / 60;
+        const idleMins = Math.max(meaningfulInputIdleMins, osIdleMins);
         const maxIdleMins = this.automationConfig?.max_idle_minutes || 1;
         const idleToBreakMins = this.automationConfig?.idle_to_break_minutes || 5;
 
@@ -656,33 +693,91 @@ class AppController {
         }
     }
 
-    async handleClockInCheck() {
+    isWithinConfiguredWorkingTime() {
         const config = this.sessionManager.config;
-        if (config && config.startTime && config.endTime) {
-            const nowTz = utcToZonedTime(new Date(), 'Europe/Berlin');
-            const nowSeconds = nowTz.getHours() * 3600 + nowTz.getMinutes() * 60;
-            
-            const [sH, sM] = config.startTime.split(':').map(Number);
-            const [eH, eM] = config.endTime.split(':').map(Number);
-            const startSeconds = sH * 3600 + sM * 60;
-            const endSeconds = eH * 3600 + eM * 60;
+        if (!config?.startTime || !config?.endTime) return false;
 
-            if (nowSeconds < startSeconds || nowSeconds > endSeconds) {
+        const nowTz = utcToZonedTime(new Date(), 'Europe/Berlin');
+        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const workingDays = config.workingDays || [];
+        if (workingDays.length && !workingDays.includes(dayNames[nowTz.getDay()])) {
+            return false;
+        }
+
+        const nowSeconds = nowTz.getHours() * 3600 + nowTz.getMinutes() * 60;
+        const [sH, sM] = config.startTime.split(':').map(Number);
+        const [eH, eM] = config.endTime.split(':').map(Number);
+        const startSeconds = sH * 3600 + sM * 60;
+        const endSeconds = eH * 3600 + eM * 60;
+        return nowSeconds >= startSeconds && nowSeconds <= endSeconds;
+    }
+
+    async handleClockInCheck({ automatic = false, eventType = null } = {}) {
+        const config = this.sessionManager.config;
+        if (!this.isWithinConfiguredWorkingTime()) {
+            if (!automatic && config?.startTime && config?.endTime) {
                 dialog.showErrorBox(
                     this.getTranslation('outsideWorkingHoursTitle'), 
                     this.getTranslation('outsideWorkingHoursBody', { start: config.startTime, end: config.endTime })
                 );
-                return;
             }
+            return false;
         }
 
         try {
             const loc = await this.apiService.getGeolocation();
-            await this.apiService.clockIn(this.userProfile.id, loc, app.getVersion());
+            const activityProof = automatic ? {
+                event_type: eventType,
+                system_idle_seconds: powerMonitor.getSystemIdleTime()
+            } : null;
+            await this.apiService.clockIn(
+                this.userProfile.id,
+                loc,
+                app.getVersion(),
+                { automatic, activityProof }
+            );
+            this.hasClockedInToday = true;
             this.startMonitoring();
-            this.refreshDashboard();
+            await this.refreshDashboard();
+            if (automatic) {
+                new Notification({
+                    title: this.getTranslation('autoClockInTitle'),
+                    body: this.getTranslation('autoClockInBody')
+                }).show();
+            }
+            return true;
         } catch(e) {
-            dialog.showErrorBox(this.getTranslation('clockInFailedTitle'), e.message);
+            if (!automatic) {
+                dialog.showErrorBox(this.getTranslation('clockInFailedTitle'), e.message);
+            } else {
+                log.warn(`[AutoClockIn] Attempt failed: ${e.message}`);
+            }
+            return false;
+        }
+    }
+
+    async tryAutomaticClockIn(eventType) {
+        if (
+            !this.userProfile
+            || !this.isOnline
+            || this.isClockedIn
+            || this.hasClockedInToday
+            || this.autoClockInAttemptPending
+            || this.sessionManager.config?.autoClockInEnabled === false
+            || !this.isWithinConfiguredWorkingTime()
+        ) {
+            return;
+        }
+
+        if (Date.now() - this.lastAutoClockInAttemptAt < 60000) return;
+        if (powerMonitor.getSystemIdleTime() > 30) return;
+
+        this.autoClockInAttemptPending = true;
+        this.lastAutoClockInAttemptAt = Date.now();
+        try {
+            await this.handleClockInCheck({ automatic: true, eventType });
+        } finally {
+            this.autoClockInAttemptPending = false;
         }
     }
 
@@ -715,20 +810,18 @@ class AppController {
         
         this.clockInReminderInterval = setInterval(() => {
              const config = this.sessionManager.config;
-             if (config && !this.isClockedIn && config.startTime && config.endTime) {
-                 const nowTz = utcToZonedTime(new Date(), 'Europe/Berlin');
-                 const [sH, sM] = config.startTime.split(':').map(Number);
-                 const [eH, eM] = config.endTime.split(':').map(Number);
-                 const nowH = nowTz.getHours();
-                 
-                 if (nowH >= sH && nowH < eH) {
-                     const n = new Notification({
-                         title: this.getTranslation('reminderTitle'),
-                         body: this.getTranslation('reminderBody')
-                     });
-                     n.on('click', () => this.mainWindow.show());
-                     n.show();
-                 }
+             if (
+                 config
+                 && !this.isClockedIn
+                 && !this.hasClockedInToday
+                 && this.isWithinConfiguredWorkingTime()
+             ) {
+                      const n = new Notification({
+                          title: this.getTranslation('reminderTitle'),
+                          body: this.getTranslation('reminderBody')
+                      });
+                      n.on('click', () => this.mainWindow.show());
+                      n.show();
              }
         }, 900000); 
     }
@@ -742,11 +835,31 @@ class AppController {
         powerSaveBlocker.start('prevent-app-suspension');
         try {
             const { uIOhook } = require('uiohook-napi');
-            const handler = () => { this.lastUserActivityMonotonic = this.getMonotonicNow(); };
-            uIOhook.on('mousemove', handler);
-            uIOhook.on('keydown', handler);
+            const meaningfulHandler = (eventType) => () => {
+                this.lastUserActivityMonotonic = this.getMonotonicNow();
+                this.inputActivity[eventType] += 1;
+                this.tryAutomaticClockIn(eventType).catch(error => {
+                    log.warn(`[AutoClockIn] Input handling failed: ${error.message}`);
+                });
+            };
+            uIOhook.on('keydown', meaningfulHandler('keydown'));
+            uIOhook.on('mousedown', meaningfulHandler('mousedown'));
+            uIOhook.on('wheel', meaningfulHandler('wheel'));
+            uIOhook.on('mousemove', event => {
+                this.inputActivity.mousemove += 1;
+                if (this.lastPointerPosition) {
+                    const dx = event.x - this.lastPointerPosition.x;
+                    const dy = event.y - this.lastPointerPosition.y;
+                    this.inputActivity.mouse_distance += Math.round(Math.sqrt(dx * dx + dy * dy));
+                }
+                this.lastPointerPosition = { x: event.x, y: event.y };
+            });
             uIOhook.start();
         } catch (e) { log.error('IOHook failed', e); }
+    }
+
+    registerActiveWindowChange() {
+        this.inputActivity.active_window_changes += 1;
     }
 
     setupPowerMonitor() {

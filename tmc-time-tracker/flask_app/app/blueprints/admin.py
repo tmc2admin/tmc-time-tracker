@@ -12,6 +12,7 @@ from ..models import (db, User, CompanyConfig, Holiday, Provision, LeaveRequest,
 from ..forms import ReportForm, UserEditForm, CompanyConfigForm, AdminReportsForm, HolidayForm, ProvisionForm
 from ..validation_models import AdminReportRequestArgs, AdminHistoricalTimelineArgs
 from ..helpers import _calculate_report_metrics_for_period, utc_to_berlin_filter
+from ..helpers.status import get_programmatic_status
 from ..decorators import admin_required
 from flask_babel import gettext as _
 from pydantic import ValidationError
@@ -46,6 +47,69 @@ def dashboard():
     all_users = User.query.order_by(User.username).all()
     users_for_filter = [{'id': 0, 'username': _('All Users')}] + [{'id': u.id, 'username': u.username} for u in all_users]
     return render_template('admin/dashboard.html', users_for_filter=users_for_filter)
+
+
+@admin_bp.route('/users')
+@login_required
+@admin_required
+def users():
+    all_users = User.query.order_by(User.username).all()
+    user_forms = {}
+    user_statuses = {}
+    status_counts = {
+        'Online': 0,
+        'Active': 0,
+        'On Break': 0,
+        'Idle': 0,
+        'Inactive': 0,
+    }
+
+    for user in all_users:
+        form = UserEditForm(prefix=f'user-{user.id}', obj=user)
+        form.default_working_days.data = [
+            day.strip()
+            for day in (user.default_working_days or '').split(',')
+            if day.strip()
+        ]
+        user_forms[user.id] = form
+
+        status = get_programmatic_status(user.id, is_admin_view=True)
+        user_statuses[user.id] = status
+        status_counts[status] = status_counts.get(status, 0) + 1
+        if status != 'Inactive':
+            status_counts['Online'] += 1
+
+    return render_template(
+        'admin/admin-users.html',
+        users=all_users,
+        user_forms=user_forms,
+        user_statuses=user_statuses,
+        status_counts=status_counts,
+    )
+
+
+@admin_bp.route('/users/<int:user_id>', methods=['POST'])
+@login_required
+@admin_required
+def update_user(user_id):
+    user = User.query.get_or_404(user_id)
+    form = UserEditForm(prefix=f'user-{user.id}')
+
+    if form.validate_on_submit():
+        user.default_daily_hours = form.default_daily_hours.data
+        user.default_working_days = ','.join(form.default_working_days.data)
+        user.session_start_time = form.session_start_time.data
+        user.session_end_time = form.session_end_time.data
+        db.session.commit()
+        flash(_('Employee working hours updated successfully.'), 'success')
+    else:
+        first_error = next(
+            (message for messages in form.errors.values() for message in messages),
+            _('Please check the entered working hours.')
+        )
+        flash(first_error, 'danger')
+
+    return redirect(url_for('admin.users'))
 
 @admin_bp.route('/settings', methods=['GET', 'POST'])
 @login_required

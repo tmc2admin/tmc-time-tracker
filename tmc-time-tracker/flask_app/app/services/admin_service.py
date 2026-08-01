@@ -19,6 +19,7 @@ from ..models import (db, User, TimeEntry, BreakEntry, IdleEntry, CompanyConfig,
 from ..helpers.status import get_programmatic_status, finalize_idle_period, force_clock_out
 from ..helpers.calculations import calculate_worked_hours
 from ..helpers.formatters import utc_to_berlin_filter
+from ..helpers.client_version import version_at_least
 from ..helpers.reporting import _get_consolidated_segments_for_user, _calculate_report_metrics_for_period
 
 BERLIN_TZ = pytz.timezone('Europe/Berlin')
@@ -51,23 +52,57 @@ class AdminService:
 
         # 2. Heartbeat Checks
         try:
-            timeout = timedelta(minutes=15)
+            config = CompanyConfig.query.first()
+            timeout = timedelta(
+                minutes=config.idle_to_break_minutes if config else 10
+            )
             now_utc = datetime.now(pytz.utc)
             active_entries = TimeEntry.query.filter(TimeEntry.clock_out_time.is_(None)).all()
 
             for entry in active_entries:
-                if get_programmatic_status(entry.user.id, is_admin_view=True) != 'Active':
+                active_break = next(
+                    (b for b in entry.break_entries if b.break_end_time is None),
+                    None
+                )
+                active_meeting = next(
+                    (i for i in entry.idle_entries
+                     if i.idle_end_time is None and i.reason == 'In Meeting'),
+                    None
+                )
+                if active_break or active_meeting:
                     continue
 
-                last_activity_naive = db.session.query(func.max(ApplicationUsage.end_time)).filter(
-                    ApplicationUsage.user_id == entry.user_id,
-                    ApplicationUsage.start_time >= entry.clock_in_time
-                ).scalar()
+                if version_at_least(entry.client_version, '2.7.6'):
+                    last_activity_naive = db.session.query(
+                        func.max(ActivityLog.timestamp)
+                    ).filter(
+                        ActivityLog.user_id == entry.user_id,
+                        ActivityLog.time_entry_id == entry.id,
+                        ActivityLog.event_type.in_([
+                            'input_heartbeat', 'clock_in', 'screen_unlocked',
+                            'system_resumed'
+                        ])
+                    ).scalar()
+                else:
+                    last_activity_naive = db.session.query(
+                        func.max(ApplicationUsage.end_time)
+                    ).filter(
+                        ApplicationUsage.user_id == entry.user_id,
+                        ApplicationUsage.start_time >= entry.clock_in_time
+                    ).scalar()
 
                 last_seen = pytz.utc.localize(last_activity_naive) if last_activity_naive else (pytz.utc.localize(entry.clock_in_time) if entry.clock_in_time.tzinfo is None else entry.clock_in_time)
 
                 if (now_utc - last_seen) > timeout:
                     break_start = (last_seen + timeout).replace(tzinfo=None)
+                    for idle_entry in entry.idle_entries:
+                        if idle_entry.idle_end_time is None:
+                            finalize_idle_period(
+                                idle_entry,
+                                break_start,
+                                reason='Automatic transition to break',
+                                commit=False
+                            )
                     db.session.add(BreakEntry(time_entry_id=entry.id, break_start_time=break_start, reason=_("System Idle (Heartbeat Timeout)")))
                     summary['heartbeat_breaks_started'] += 1
         except Exception as e:
@@ -125,6 +160,15 @@ class AdminService:
             loc = UserLocationLog.query.filter(UserLocationLog.time_entry_id == latest_map[uid].id).first()
             locations[uid] = f"{loc.city}, {loc.country}" if loc and loc.city else "NA"
 
+        warning_cutoff = now_utc.replace(tzinfo=None) - timedelta(hours=1)
+        warning_entry_ids = {
+            row[0] for row in db.session.query(ActivityLog.time_entry_id).filter(
+                ActivityLog.time_entry_id.in_([entry.id for entry in active_list]),
+                ActivityLog.event_type == 'integrity_warning',
+                ActivityLog.timestamp >= warning_cutoff
+            ).all()
+        } if active_list else set()
+
         # Build Response
         sessions_data = []
         status_counts = {"Active": 0, "On Break": 0, "Idle": 0, "Inactive": 0} # Default keys
@@ -147,6 +191,7 @@ class AdminService:
                 'status': status,
                 'location': locations.get(entry.user_id, "NA"),
                 'app_version': entry.client_version or 'N/A',
+                'integrity_review_required': entry.id in warning_entry_ids,
                 'expected_clock_out': expected_out.astimezone(BERLIN_TZ).strftime('%H:%M')
             })
             

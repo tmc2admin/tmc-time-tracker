@@ -13,6 +13,7 @@ from pydantic import ValidationError
 
 from .. import db
 from ..models import User, CompanyConfig, OvertimeAllocation, UserDeviceSession
+from ..helpers.schedule import get_user_schedule
 from ..validation_models import SsoLoginPayload, OidPayload, WebTokenPayload
 from .auth import sso_tokens
 
@@ -47,35 +48,10 @@ def get_user_config(user_id):
         # 2. Fetch Config (Safe - Handle Missing or Empty)
         config = CompanyConfig.query.first()
 
-        # --- Defaults (if DB empty or NULL) ---
-        effective_start_time = time(8, 0)   # 08:00
-        effective_end_time = time(17, 0)    # 17:00
-
-        # --- SAFE SQL SERVER TIME PARSING ---
-        if config:
-            # ---------- START TIME ----------
-            raw_start = config.working_hours_start
-            if raw_start:
-                if isinstance(raw_start, str):
-                    effective_start_time = datetime.strptime(
-                        raw_start.split('.')[0], "%H:%M:%S"
-                    ).time()
-                elif isinstance(raw_start, datetime):
-                    effective_start_time = raw_start.time()
-                else:
-                    effective_start_time = raw_start
-
-            # ---------- END TIME ----------
-            raw_end = config.working_hours_end
-            if raw_end:
-                if isinstance(raw_end, str):
-                    effective_end_time = datetime.strptime(
-                        raw_end.split('.')[0], "%H:%M:%S"
-                    ).time()
-                elif isinstance(raw_end, datetime):
-                    effective_end_time = raw_end.time()
-                else:
-                    effective_end_time = raw_end
+        effective_start_time, effective_end_time, working_days = get_user_schedule(
+            user,
+            config
+        )
 
         # 3. Handle Timezones
         now_utc = datetime.now(pytz.utc)
@@ -104,6 +80,8 @@ def get_user_config(user_id):
         return jsonify({
             'startTime': effective_start_time.strftime('%H:%M:%S'),
             'endTime': effective_end_time.strftime('%H:%M:%S'),
+            'workingDays': list(working_days),
+            'autoClockInEnabled': True,
             'isSuspended': bool(user.is_suspended),
             'serverTime': now_utc.isoformat(),
             'requireLocation': getattr(config, 'require_location', True) if config else True,

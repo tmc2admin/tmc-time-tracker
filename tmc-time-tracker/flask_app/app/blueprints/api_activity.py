@@ -12,9 +12,10 @@ from pydantic import ValidationError
 from .. import db
 from ..models import (
     User, TimeEntry, BreakEntry, IdleEntry, ActivityLog, 
-    ApplicationUsage, UserDeviceSession
+    ApplicationUsage, UserDeviceSession, CompanyConfig
 )
 from ..helpers import finalize_idle_period
+from ..helpers.client_version import version_at_least
 from ..validation_models import (
     ActivityPayload, ApplicationUsagePayload, FinalizeIdlePayload
 )
@@ -403,6 +404,109 @@ def receive_heartbeat_ping(microsoft_oid):
     # Update global user heartbeat
     user.last_heartbeat_utc = now_utc
 
+    evidence = payload.get('activity_evidence') or {}
+    active_entry = TimeEntry.query.filter_by(
+        user_id=user.id,
+        clock_out_time=None
+    ).first()
+
+    if active_entry:
+        def evidence_count(name):
+            try:
+                return max(0, int(evidence.get(name, 0)))
+            except (TypeError, ValueError):
+                return 0
+
+        keydown_count = evidence_count('keydown')
+        mousedown_count = evidence_count('mousedown')
+        mousewheel_count = evidence_count('wheel')
+        mousemove_count = evidence_count('mousemove')
+        mouse_distance = evidence_count('mouse_distance')
+        active_window_changes = evidence_count('active_window_changes')
+        meaningful_count = keydown_count + mousedown_count + mousewheel_count
+
+        try:
+            system_idle_seconds = max(0.0, float(evidence.get('system_idle_seconds')))
+        except (TypeError, ValueError):
+            system_idle_seconds = None
+
+        evidence_details = {
+            'device_id': device_id,
+            'keydown': keydown_count,
+            'mousedown': mousedown_count,
+            'wheel': mousewheel_count,
+            'mousemove': mousemove_count,
+            'mouse_distance': mouse_distance,
+            'active_window_changes': active_window_changes,
+            'system_idle_seconds': system_idle_seconds,
+            'interval_seconds': evidence_count('interval_seconds')
+        }
+
+        if meaningful_count > 0 and system_idle_seconds is not None \
+                and system_idle_seconds <= 30:
+            device_session.is_idle = False
+            recent_input_cutoff = now_utc - timedelta(seconds=45)
+            recent_input = ActivityLog.query.filter(
+                ActivityLog.user_id == user.id,
+                ActivityLog.time_entry_id == active_entry.id,
+                ActivityLog.event_type == 'input_heartbeat',
+                ActivityLog.timestamp >= recent_input_cutoff
+            ).first()
+            if not recent_input:
+                db.session.add(ActivityLog(
+                    user_id=user.id,
+                    time_entry_id=active_entry.id,
+                    timestamp=now_utc,
+                    event_type='input_heartbeat',
+                    details=json.dumps(evidence_details)
+                ))
+
+        suspicious_mouse_only = (
+            meaningful_count == 0
+            and active_window_changes == 0
+            and (mousemove_count >= 20 or mouse_distance >= 500)
+        )
+        if suspicious_mouse_only:
+            warning_cutoff = now_utc - timedelta(minutes=15)
+            recent_warning = ActivityLog.query.filter(
+                ActivityLog.user_id == user.id,
+                ActivityLog.time_entry_id == active_entry.id,
+                ActivityLog.event_type == 'integrity_warning',
+                ActivityLog.timestamp >= warning_cutoff
+            ).first()
+            if not recent_warning:
+                evidence_details['reason'] = 'mouse_movement_without_meaningful_input'
+                db.session.add(ActivityLog(
+                    user_id=user.id,
+                    time_entry_id=active_entry.id,
+                    timestamp=now_utc,
+                    event_type='integrity_warning',
+                    details=json.dumps(evidence_details)
+                ))
+
+        config = CompanyConfig.query.first()
+        max_idle_seconds = (
+            (config.max_idle_minutes if config else 5) * 60
+        )
+        if system_idle_seconds is not None and system_idle_seconds >= max_idle_seconds:
+            device_session.is_idle = True
+            has_open_pause = (
+                BreakEntry.query.filter_by(
+                    time_entry_id=active_entry.id,
+                    break_end_time=None
+                ).first()
+                or IdleEntry.query.filter_by(
+                    time_entry_id=active_entry.id,
+                    idle_end_time=None
+                ).first()
+            )
+            if not has_open_pause:
+                db.session.add(IdleEntry(
+                    time_entry_id=active_entry.id,
+                    idle_start_time=now_utc,
+                    reason='System idle verified by operating system'
+                ))
+
     db.session.commit()
     return jsonify({"message": "Heartbeat ping received"}), 200
 
@@ -415,7 +519,10 @@ def heartbeat_cleanup_job():
     """
     log.info("Scheduler: Running heartbeat cleanup job...")
     now_utc = datetime.utcnow()
-    threshold = now_utc - timedelta(minutes=5)
+    config = CompanyConfig.query.first()
+    idle_to_break_minutes = config.idle_to_break_minutes if config else 10
+    threshold_delta = timedelta(minutes=idle_to_break_minutes)
+    threshold = now_utc - threshold_delta
 
     active_entries = TimeEntry.query.filter(TimeEntry.clock_out_time.is_(None)).all()
     breaks_started_count = 0
@@ -433,32 +540,33 @@ def heartbeat_cleanup_job():
         if active_break:
             continue
 
-        # Check for recent activity
-        last_usage = ApplicationUsage.query.filter_by(user_id=user_id)\
-            .order_by(ApplicationUsage.end_time.desc()).first()
-        ts_usage = last_usage.end_time or last_usage.start_time if last_usage else None
-
-        last_activity = ActivityLog.query.filter_by(user_id=user_id)\
-            .order_by(ActivityLog.timestamp.desc()).first()
-        ts_activity = last_activity.timestamp if last_activity else None
-
-        # Check device heartbeats
-        last_device_ping = db.session.query(func.max(UserDeviceSession.last_heartbeat))\
-            .filter_by(user_id=user_id).scalar()
-
-        ts_heartbeat = last_device_ping or entry.user.last_heartbeat_utc
-
-        # Determine last seen time
-        timestamps = [t for t in [ts_usage, ts_activity, ts_heartbeat] if t is not None]
-
-        last_seen = max(timestamps) if timestamps else None
+        if version_at_least(entry.client_version, '2.7.6'):
+            # New clients report aggregated verified input signals.
+            last_activity = ActivityLog.query.filter(
+                ActivityLog.user_id == user_id,
+                ActivityLog.time_entry_id == entry.id,
+                ActivityLog.event_type.in_([
+                    'input_heartbeat', 'clock_in', 'screen_unlocked',
+                    'system_resumed'
+                ])
+            ).order_by(ActivityLog.timestamp.desc()).first()
+            ts_activity = last_activity.timestamp if last_activity else None
+        else:
+            # Keep deployed 2.7.5 and older clients functional during rollout.
+            last_usage = ApplicationUsage.query.filter_by(user_id=user_id)\
+                .order_by(ApplicationUsage.end_time.desc()).first()
+            ts_activity = (
+                (last_usage.end_time or last_usage.start_time)
+                if last_usage else None
+            )
+        last_seen = ts_activity or entry.clock_in_time
 
         # If no activity, start a break
         if not last_seen or last_seen < threshold:
             new_break = BreakEntry(
                 time_entry_id=entry.id,
-                break_start_time=now_utc,
-                reason="System Idle (No Heartbeat)"
+                break_start_time=last_seen + threshold_delta,
+                reason="System Idle (No Verified User Input)"
             )
             db.session.add(new_break)
             breaks_started_count += 1

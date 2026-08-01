@@ -50,7 +50,24 @@ class UserEditForm(FlaskForm):
         ],
         validators=[InputRequired()]
     )
+    session_start_time = TimeField(
+        _('Working Hours Start'),
+        format='%H:%M',
+        validators=[InputRequired()]
+    )
+    session_end_time = TimeField(
+        _('Working Hours End'),
+        format='%H:%M',
+        validators=[InputRequired()]
+    )
     submit = SubmitField(_('Update User'))
+
+    def validate_session_end_time(self, field):
+        if self.session_start_time.data and field.data:
+            if field.data <= self.session_start_time.data:
+                raise ValidationError(
+                    _('Working hours end must be later than working hours start.')
+                )
 
 class ReportForm(FlaskForm):
     user = IntegerField(_('User'), validators=[InputRequired()])

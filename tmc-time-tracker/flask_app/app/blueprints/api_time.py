@@ -13,7 +13,7 @@ from pydantic import ValidationError
 from .. import db
 from ..models import (
     User, TimeEntry, BreakEntry, IdleEntry, CompanyConfig, 
-    UserLocationLog, ActivityLog, OvertimeAllocation
+    UserLocationLog, ActivityLog, OvertimeAllocation, UserDeviceSession
 )
 from ..helpers import (
     _handle_stale_sessions_for_user, calculate_worked_hours, 
@@ -21,9 +21,11 @@ from ..helpers import (
     _get_consolidated_segments_for_user, calculate_entries_time_totals
 )
 from ..validation_models import ClockInPayload, ClockOutPayload
+from ..helpers.schedule import get_user_schedule, is_within_user_schedule
 
 log = logging.getLogger(__name__)
 api_time_bp = Blueprint('api_time', __name__)
+ACTIVE_DEVICE_TIMEOUT = timedelta(minutes=3)
 
 # --- Timezone Configuration - FIXED: Don't access current_app at module level ---
 def get_berlin_tz():
@@ -33,6 +35,41 @@ def get_berlin_tz():
     except RuntimeError:
         # Outside application context, return default
         return pytz.timezone('Europe/Berlin')
+
+
+def _validate_current_device(user):
+    device_id = str(
+        request.headers.get('X-Device-ID')
+        or (request.get_json(silent=True) or {}).get('device_id')
+        or ''
+    ).strip()
+
+    if not device_id:
+        return None, (jsonify({
+            'code': 'E_DEVICE_REQUIRED',
+            'message': 'A device ID is required.'
+        }), 400)
+
+    if user.device_mac_address != device_id:
+        return None, (jsonify({
+            'code': 'E_SESSION_REPLACED',
+            'message': 'This desktop session is no longer active.'
+        }), 409)
+
+    device_session = UserDeviceSession.query.filter_by(
+        user_id=user.id,
+        device_id=device_id
+    ).first()
+    cutoff = datetime.now(pytz.utc).replace(tzinfo=None) - ACTIVE_DEVICE_TIMEOUT
+
+    if not device_session or not device_session.last_heartbeat \
+            or device_session.last_heartbeat < cutoff:
+        return None, (jsonify({
+            'code': 'E_DEVICE_SESSION_EXPIRED',
+            'message': 'The desktop session has expired. Please sign in again.'
+        }), 409)
+
+    return device_session, None
 
 
 @api_time_bp.route('/clock_in_for_electron/<microsoft_oid>', methods=['POST'])
@@ -50,6 +87,10 @@ def clock_in_for_electron(microsoft_oid):
         }
     """
     user = User.query.filter_by(microsoft_oid=microsoft_oid).first_or_404()
+
+    device_session, device_error = _validate_current_device(user)
+    if device_error:
+        return device_error
     
     # Check suspension
     if user.is_suspended:
@@ -65,12 +106,21 @@ def clock_in_for_electron(microsoft_oid):
     
     MIN_VALID_TIMESTAMP = datetime(2024, 1, 1, tzinfo=pytz.utc)
 
-    # Check working hours start
-    if config and config.working_hours_start and now_berlin.time() < config.working_hours_start:
+    schedule_start, schedule_end, working_days = get_user_schedule(user, config)
+    if now_berlin.strftime('%A') not in working_days:
         return jsonify({
-            'success': False, 
-            'message': _('Clock-in is only allowed from %(time)s onwards.', 
-                        time=config.working_hours_start.strftime('%H:%M'))
+            'success': False,
+            'code': 'E_OUTSIDE_WORKING_DAY',
+            'message': _('Clock-in is not allowed on this working day.')
+        }), 403
+
+    if not is_within_user_schedule(user, config, now_berlin):
+        return jsonify({
+            'success': False,
+            'code': 'E_OUTSIDE_WORKING_HOURS',
+            'message': _('Clock-in is only allowed between %(start)s and %(end)s.',
+                         start=schedule_start.strftime('%H:%M'),
+                         end=schedule_end.strftime('%H:%M'))
         }), 403
             
     # Clean up stale sessions
@@ -119,6 +169,25 @@ def clock_in_for_electron(microsoft_oid):
         data = request.get_json() or {}
         location_data = data.get('location')
         client_version = data.get('client_version')
+        is_automatic = bool(data.get('automatic'))
+        activity_proof = data.get('activity_proof') or {}
+
+        if is_automatic:
+            meaningful_event = activity_proof.get('event_type') in {
+                'keydown', 'mousedown', 'wheel'
+            }
+            try:
+                system_idle_seconds = float(activity_proof.get('system_idle_seconds'))
+            except (TypeError, ValueError):
+                system_idle_seconds = None
+
+            if not meaningful_event or system_idle_seconds is None \
+                    or system_idle_seconds > 30:
+                return jsonify({
+                    'success': False,
+                    'code': 'E_ACTIVITY_REQUIRED',
+                    'message': _('Automatic clock-in requires recent user activity.')
+                }), 403
         
         # Create new time entry
         new_entry = TimeEntry(
@@ -167,7 +236,12 @@ def clock_in_for_electron(microsoft_oid):
             time_entry_id=new_entry.id,
             timestamp=new_entry.clock_in_time,
             event_type='clock_in',
-            details=json.dumps({'source': 'electron_app', 'version': client_version})
+            details=json.dumps({
+                'source': 'electron_app_auto' if is_automatic else 'electron_app_manual',
+                'version': client_version,
+                'device_id': device_session.device_id,
+                'activity_proof': activity_proof if is_automatic else None
+            })
         )
         db.session.add(new_activity_log)
 
@@ -206,6 +280,10 @@ def clock_out_for_electron(microsoft_oid):
         }), 400
 
     user = User.query.filter_by(microsoft_oid=microsoft_oid).first_or_404()
+    validated_device_session, device_error = _validate_current_device(user)
+    if device_error:
+        return device_error
+
     active_entry = TimeEntry.query.filter_by(user_id=user.id, clock_out_time=None).first()
 
     if not active_entry:
@@ -215,17 +293,9 @@ def clock_out_for_electron(microsoft_oid):
             'message': _('Already clocked out.')
         }), 200
 
-    # Determine clock-out time (client timestamp or server time)
+    # Server time is authoritative. Client timestamps are telemetry only.
     clock_out_time_utc = datetime.now(pytz.utc)
     client_timestamp_str = payload_data.get('timestamp')
-    if client_timestamp_str:
-        try:
-            clock_out_time_utc = datetime.fromisoformat(
-                client_timestamp_str.replace('Z', '+00:00')
-            )
-            log.info(f"Using client timestamp for clock-out: {clock_out_time_utc}")
-        except (ValueError, TypeError):
-            log.warning(f"Could not parse client timestamp, using server time.")
     
     # End active breaks
     for b in BreakEntry.query.filter_by(time_entry_id=active_entry.id, break_end_time=None).all():
@@ -258,7 +328,10 @@ def clock_out_for_electron(microsoft_oid):
         time_entry_id=active_entry.id,
         timestamp=clock_out_time_utc.replace(tzinfo=None),
         event_type='clock_out',
-        details=json.dumps({'source': payload.source})
+        details=json.dumps({
+            'source': payload.source,
+            'client_timestamp': client_timestamp_str
+        })
     ))
     
     db.session.commit()
@@ -364,6 +437,7 @@ def dashboard_data_for_electron(user_id):
     return jsonify({
         'status': status,
         'is_clocked_in': active_entry is not None,
+        'has_clocked_in_today': bool(today_entries),
         'user_display_name': user.username,
         'session_segments': session_segments,
         'server_time_utc': now_utc.isoformat(),

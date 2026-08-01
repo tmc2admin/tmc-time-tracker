@@ -73,6 +73,10 @@ class ActivityTracker {
                 if (this.currentApp.name) {
                     await this.recordCurrentAppUsage(); 
                 }
+
+                if (isAppChanged && this.appManager?.registerActiveWindowChange) {
+                    this.appManager.registerActiveWindowChange();
+                }
                 
                 this.currentApp = { 
                     name: appName, 
