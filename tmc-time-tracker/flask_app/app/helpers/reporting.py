@@ -3,7 +3,7 @@ import pytz
 from itertools import groupby
 from collections import defaultdict
 from flask_babel import gettext as _
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import selectinload
 from ..models import db, User, TimeEntry
 from .formatters import BERLIN_TZ, EPOCH_START_UTC, utc_to_berlin_filter, format_seconds_to_hhmm, format_datetime_for_report
 from .calculations import calculate_worked_hours
@@ -33,8 +33,8 @@ def _get_consolidated_segments_for_user(user_id, start_date=None, end_date=None)
         query = query.filter(TimeEntry.clock_in_time <= end_datetime_utc)
 
     time_entries = query.options(
-        joinedload(TimeEntry.break_entries),
-        joinedload(TimeEntry.idle_entries)
+        selectinload(TimeEntry.break_entries),
+        selectinload(TimeEntry.idle_entries)
     ).order_by(TimeEntry.clock_in_time).all()
 
     for entry in time_entries:
@@ -133,8 +133,8 @@ def _calculate_report_metrics_for_period(report_type, user_id, start_date, end_d
         user_list = User.query.order_by(User.username).all()
 
     query = TimeEntry.query.join(User).options(
-        db.joinedload(TimeEntry.break_entries),
-        db.joinedload(TimeEntry.idle_entries)
+        selectinload(TimeEntry.break_entries),
+        selectinload(TimeEntry.idle_entries)
     ).filter(TimeEntry.clock_in_time.between(start_datetime_utc, end_datetime_utc)).order_by(User.username, TimeEntry.clock_in_time)
 
     if user_id != 0: query = query.filter(TimeEntry.user_id == user_id)

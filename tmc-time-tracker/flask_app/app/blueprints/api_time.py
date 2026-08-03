@@ -3,7 +3,7 @@
 import json
 import logging
 from datetime import datetime, timedelta, time
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import selectinload
 from sqlalchemy import or_
 import pytz
 from flask import Blueprint, request, jsonify, current_app
@@ -24,6 +24,19 @@ from ..validation_models import ClockInPayload, ClockOutPayload
 
 log = logging.getLogger(__name__)
 api_time_bp = Blueprint('api_time', __name__)
+
+MIN_SUPPORTED_CLIENT_VERSION = (2, 7, 4)
+
+
+def _parse_client_version(value):
+    if not value:
+        return None
+
+    try:
+        parts = str(value).strip().split('.')
+        return tuple(int(part) for part in parts[:3]) + (0,) * (3 - len(parts))
+    except (TypeError, ValueError):
+        return None
 
 # --- Timezone Configuration - FIXED: Don't access current_app at module level ---
 def get_berlin_tz():
@@ -50,6 +63,16 @@ def clock_in_for_electron(microsoft_oid):
         }
     """
     user = User.query.filter_by(microsoft_oid=microsoft_oid).first_or_404()
+    data = request.get_json(silent=True) or {}
+    client_version = _parse_client_version(data.get('client_version'))
+
+    if client_version is None or client_version < MIN_SUPPORTED_CLIENT_VERSION:
+        return jsonify({
+            'success': False,
+            'code': 'E_CLIENT_UPDATE_REQUIRED',
+            'message': _('Please update the Time Tracker app before clocking in.'),
+            'minimum_version': '.'.join(map(str, MIN_SUPPORTED_CLIENT_VERSION))
+        }), 426
     
     # Check suspension
     if user.is_suspended:
@@ -88,8 +111,8 @@ def clock_in_for_electron(microsoft_oid):
 
     if not has_overtime_today:
         today_entries = TimeEntry.query.options(
-            joinedload(TimeEntry.break_entries),
-            joinedload(TimeEntry.idle_entries)
+            selectinload(TimeEntry.break_entries),
+            selectinload(TimeEntry.idle_entries)
         ).filter(
             TimeEntry.user_id == user.id,
             TimeEntry.clock_in_time >= start_of_today_utc
@@ -116,7 +139,6 @@ def clock_in_for_electron(microsoft_oid):
             TimeEntry.clock_in_time >= start_of_today_utc
         ).order_by(TimeEntry.clock_out_time.desc()).first()
         
-        data = request.get_json() or {}
         location_data = data.get('location')
         client_version = data.get('client_version')
         
@@ -292,8 +314,8 @@ def dashboard_data_for_electron(user_id):
 
     # Fetch all of today's entries with relations in one query
     today_entries = TimeEntry.query.options(
-        joinedload(TimeEntry.break_entries),
-        joinedload(TimeEntry.idle_entries)
+        selectinload(TimeEntry.break_entries),
+        selectinload(TimeEntry.idle_entries)
     ).filter(
         TimeEntry.user_id == user.id,
         TimeEntry.clock_in_time < day_end_utc,

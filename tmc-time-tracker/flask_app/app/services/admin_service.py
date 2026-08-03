@@ -7,7 +7,7 @@ import csv
 from io import StringIO
 from datetime import datetime, date, timedelta, time
 from sqlalchemy import func, text, case, cast, Date, literal_column, and_
-from sqlalchemy.orm import joinedload, aliased
+from sqlalchemy.orm import joinedload, selectinload, aliased
 from flask_babel import gettext as _
 
 # Import models & db
@@ -87,7 +87,9 @@ class AdminService:
 
         # Fetch latest active entry per user
         active_entries = TimeEntry.query.filter(TimeEntry.clock_out_time.is_(None)).options(
-            joinedload(TimeEntry.user), joinedload(TimeEntry.break_entries), joinedload(TimeEntry.idle_entries)
+            joinedload(TimeEntry.user),
+            selectinload(TimeEntry.break_entries),
+            selectinload(TimeEntry.idle_entries)
         ).all()
         
         # Deduplicate
@@ -103,7 +105,7 @@ class AdminService:
         daily_entries = TimeEntry.query.filter(
             TimeEntry.user_id.in_(active_user_ids),
             cast(TimeEntry.clock_in_time, Date) == today_utc_date
-        ).options(joinedload(TimeEntry.break_entries), joinedload(TimeEntry.idle_entries)).all()
+        ).options(selectinload(TimeEntry.break_entries), selectinload(TimeEntry.idle_entries)).all()
 
         user_metrics = {}
         for entry in daily_entries:
@@ -244,8 +246,8 @@ class AdminService:
         now_utc = datetime.now(pytz.utc)
         today_start = datetime.combine(now_utc.date(), time.min)
         
-        users = User.query.options(joinedload(User.time_entries.and_(TimeEntry.clock_in_time >= today_start))
-                                  .options(joinedload(TimeEntry.break_entries), joinedload(TimeEntry.idle_entries))
+        users = User.query.options(selectinload(User.time_entries.and_(TimeEntry.clock_in_time >= today_start))
+                                  .options(selectinload(TimeEntry.break_entries), selectinload(TimeEntry.idle_entries))
                                   ).filter(User.time_entries.any(TimeEntry.clock_in_time >= today_start)).all()
         summary = []
         for u in users:
@@ -286,7 +288,7 @@ class AdminService:
             users = User.query.filter(User.id == user_id).all() if user_id else User.query.all()
             user_ids = [u.id for u in users]
             
-            entries = TimeEntry.query.options(joinedload(TimeEntry.break_entries), joinedload(TimeEntry.idle_entries))\
+            entries = TimeEntry.query.options(selectinload(TimeEntry.break_entries), selectinload(TimeEntry.idle_entries))\
                 .filter(TimeEntry.user_id.in_(user_ids), TimeEntry.clock_in_time >= period_start, TimeEntry.clock_in_time <= period_end)\
                 .order_by(TimeEntry.clock_in_time).all()
                 
