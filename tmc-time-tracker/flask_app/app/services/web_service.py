@@ -4,7 +4,7 @@ import pytz
 import logging
 from datetime import datetime, time, timedelta
 from sqlalchemy import or_
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import selectinload
 from flask_babel import gettext as _
 
 # Import Models & Helpers
@@ -87,8 +87,8 @@ class WebService:
             active_break = BreakEntry.query.filter_by(time_entry_id=active_entry.id, break_end_time=None).first()
             day_start_utc, day_end_utc = _berlin_day_bounds(today)
             today_entries = TimeEntry.query.options(
-                joinedload(TimeEntry.break_entries),
-                joinedload(TimeEntry.idle_entries)
+                selectinload(TimeEntry.break_entries),
+                selectinload(TimeEntry.idle_entries)
             ).filter(
                 TimeEntry.user_id == user.id,
                 TimeEntry.clock_in_time < day_end_utc,
@@ -154,8 +154,8 @@ class WebService:
         today = now_utc.astimezone(BERLIN_TZ).date()
         day_start_utc, day_end_utc = _berlin_day_bounds(today)
         all_today = TimeEntry.query.options(
-            joinedload(TimeEntry.break_entries),
-            joinedload(TimeEntry.idle_entries)
+            selectinload(TimeEntry.break_entries),
+            selectinload(TimeEntry.idle_entries)
         ).filter(
             TimeEntry.user_id == user.id,
             TimeEntry.clock_in_time < day_end_utc,
@@ -221,8 +221,8 @@ class WebService:
         _, end_dt = _berlin_day_bounds(end_date)
 
         entries = TimeEntry.query.options(
-            joinedload(TimeEntry.break_entries),
-            joinedload(TimeEntry.idle_entries)
+            selectinload(TimeEntry.break_entries),
+            selectinload(TimeEntry.idle_entries)
         ).filter(
             TimeEntry.user_id == user_id,
             TimeEntry.clock_in_time < end_dt,
@@ -302,7 +302,7 @@ class WebService:
         while curr <= end_date:
             day_start_utc, day_end_utc = _berlin_day_bounds(curr)
             
-            entries = TimeEntry.query.options(joinedload(TimeEntry.break_entries), joinedload(TimeEntry.idle_entries))\
+            entries = TimeEntry.query.options(selectinload(TimeEntry.break_entries), selectinload(TimeEntry.idle_entries))\
                 .filter(
                     TimeEntry.user_id == user_id,
                     TimeEntry.clock_in_time < day_end_utc,
