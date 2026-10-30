@@ -2,11 +2,13 @@ import secrets
 import time as time_module
 import requests
 import os
+from datetime import datetime
 from flask import Blueprint, current_app, render_template, redirect, url_for, flash, request, jsonify, session
 from flask_login import login_user, logout_user, current_user, login_required
 
 from .. import db, oauth
 from ..models import User, CompanyConfig
+from ..helpers.crypto import encrypt_text, TokenEncryptionNotConfigured
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -75,9 +77,34 @@ def authorize_microsoft():
         db.session.add(user)
         db.session.commit()
 
+    _store_mail_refresh_token_if_present(user, token)
+
     login_user(user)
     flash('Logged in successfully via Microsoft.', 'success')
     return redirect(url_for('web.dashboard'))
+
+
+def _store_mail_refresh_token_if_present(user, token):
+    """Persist the Graph refresh token when the user consented to the mail scopes.
+
+    `token` is whatever Authlib's authorize_access_token() returned - it only contains a
+    refresh_token when offline_access was granted, and only contains Mail.Read/Mail.ReadWrite
+    in 'scope' if the user actually consented to them (admins can decline extra scopes, or an
+    existing app registration may not have them enabled yet). We only store the token when
+    the mail scopes are present, since that is what app/services/graph_mail_client.py needs.
+    """
+    refresh_token = token.get('refresh_token')
+    granted_scope = token.get('scope', '') or ''
+    if not refresh_token or 'Mail.Read' not in granted_scope:
+        return
+    try:
+        user.ms_mail_refresh_token_enc = encrypt_text(refresh_token)
+    except TokenEncryptionNotConfigured as exc:
+        current_app.logger.warning(f"Could not store mail refresh token for {user.email}: {exc}")
+        return
+    user.ms_mail_token_scope = granted_scope
+    user.ms_mail_token_updated_at = datetime.utcnow()
+    db.session.commit()
 
 @auth_bp.route('/logout')
 @login_required

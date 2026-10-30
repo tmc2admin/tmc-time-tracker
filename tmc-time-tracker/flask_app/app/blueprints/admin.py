@@ -8,7 +8,10 @@ from datetime import datetime, date, timedelta
 
 # Import Services & Helpers
 from ..services.admin_service import AdminService
-from ..models import (db, User, CompanyConfig, Holiday, Provision, LeaveRequest, Customer, TelekomPassword, OvertimeAllocation)
+from ..services.mail_followup_service import MailFollowUpService
+from ..services import graph_mail_client
+from ..models import (db, User, CompanyConfig, Holiday, Provision, LeaveRequest, Customer, TelekomPassword,
+                      OvertimeAllocation, MailFollowUp, MailWatchedDomain)
 from ..forms import ReportForm, UserEditForm, CompanyConfigForm, AdminReportsForm, HolidayForm, ProvisionForm
 from ..validation_models import AdminReportRequestArgs, AdminHistoricalTimelineArgs
 from ..helpers import _calculate_report_metrics_for_period, utc_to_berlin_filter
@@ -37,6 +40,24 @@ def require_webjob_auth(f):
 @require_webjob_auth
 def api_enforce_auto_clock_out():
     return jsonify(AdminService.run_auto_clock_out_logic()), 200
+
+@admin_bp.route('/api/run_mail_followup_check', methods=['POST'])
+@require_webjob_auth
+def api_run_mail_followup_check():
+    """Daily entry point for the Hausverwaltung mail follow-up feature. Point an Azure
+    WebJob / scheduled task at this (same auth pattern as enforce_auto_clock_out) for a
+    weekday-morning run. Runs once per user who has consented to the mail scopes; a
+    failure for one user (expired token, Graph outage, ...) is recorded and skipped
+    rather than aborting the whole run."""
+    results = {}
+    users_with_mail_access = User.query.filter(User.ms_mail_refresh_token_enc.isnot(None)).all()
+    for user in users_with_mail_access:
+        try:
+            results[user.email] = MailFollowUpService.sync_user(user)
+        except graph_mail_client.MailAccessUnavailable as exc:
+            logging.getLogger(__name__).warning(f"Mail follow-up sync skipped for {user.email}: {exc}")
+            results[user.email] = {'error': str(exc)}
+    return jsonify(results), 200
 
 # --- DASHBOARD & VIEWS ---
 @admin_bp.route('/dashboard')
@@ -420,3 +441,107 @@ def manage_customers():
         flash(_('Customer saved.'), 'success')
         return redirect(url_for('admin.manage_customers'))
     return render_template('admin/customers.html', customers=Customer.query.order_by(Customer.created_at.desc()).all())
+
+# --- HAUSVERWALTUNG MAIL FOLLOW-UPS ---
+
+def _followup_to_dict(row):
+    return {
+        'id': row.id,
+        'subject': row.subject,
+        'counterpart_name': row.counterpart_name,
+        'counterpart_email': row.counterpart_email,
+        'company_label': row.company_label,
+        'status': row.status,
+        'due_date': row.due_date.isoformat() if row.due_date else None,
+        'last_inbound_at': utc_to_berlin_filter(row.last_inbound_at, format='%d.%m.%Y %H:%M') if row.last_inbound_at else None,
+        'web_link': row.web_link,
+        'draft_text': row.draft_text,
+        'draft_error': row.draft_error,
+        'outlook_draft_web_link': row.outlook_draft_web_link,
+    }
+
+@admin_bp.route('/mail_followups')
+@login_required
+@admin_required
+def mail_followups():
+    mail_access_configured = bool(current_user.ms_mail_refresh_token_enc)
+    return render_template('admin/mail_followups.html', mail_access_configured=mail_access_configured)
+
+@admin_bp.route('/api/mail_followups')
+@login_required
+@admin_required
+def api_mail_followups():
+    status = request.args.get('status') or None
+    rows = MailFollowUpService.list_followups(current_user.id, status=status)
+    return jsonify([_followup_to_dict(r) for r in rows]), 200
+
+@admin_bp.route('/api/mail_followups/<int:followup_id>', methods=['PUT'])
+@login_required
+@admin_required
+def api_update_mail_followup(followup_id):
+    row = MailFollowUp.query.get_or_404(followup_id)
+    if row.user_id != current_user.id:
+        return jsonify({'error': 'Not found.'}), 404
+
+    data = request.get_json(silent=True) or {}
+    if 'draft_text' in data:
+        row = MailFollowUpService.update_draft_text(followup_id, data['draft_text'])
+    if 'status' in data:
+        due_date = None
+        if data.get('due_date'):
+            due_date = datetime.strptime(data['due_date'], '%Y-%m-%d').date()
+        row = MailFollowUpService.set_status(followup_id, data['status'], due_date=due_date)
+    return jsonify(_followup_to_dict(row)), 200
+
+@admin_bp.route('/api/mail_followups/<int:followup_id>/regenerate', methods=['POST'])
+@login_required
+@admin_required
+def api_regenerate_mail_followup_draft(followup_id):
+    row = MailFollowUp.query.get_or_404(followup_id)
+    if row.user_id != current_user.id:
+        return jsonify({'error': 'Not found.'}), 404
+
+    feedback = (request.get_json(silent=True) or {}).get('feedback')
+    row = MailFollowUpService.regenerate_draft(followup_id, feedback=feedback)
+    return jsonify(_followup_to_dict(row)), 200
+
+@admin_bp.route('/api/mail_followups/<int:followup_id>/create_outlook_draft', methods=['POST'])
+@login_required
+@admin_required
+def api_create_outlook_draft(followup_id):
+    row = MailFollowUp.query.get_or_404(followup_id)
+    if row.user_id != current_user.id:
+        return jsonify({'error': 'Not found.'}), 404
+
+    try:
+        row = MailFollowUpService.create_outlook_draft(current_user, followup_id)
+    except graph_mail_client.MailAccessUnavailable as exc:
+        return jsonify({'error': str(exc)}), 409
+    return jsonify(_followup_to_dict(row)), 200
+
+@admin_bp.route('/mail_watched_domains', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def mail_watched_domains():
+    if request.method == 'POST':
+        domain = (request.form.get('domain') or '').strip().lower()
+        label = (request.form.get('label') or '').strip() or None
+        is_keyword = request.form.get('is_keyword') == 'on'
+        if domain:
+            db.session.add(MailWatchedDomain(domain=domain, label=label, is_keyword=is_keyword))
+            db.session.commit()
+            flash(_('Added.'), 'success')
+        return redirect(url_for('admin.mail_watched_domains'))
+    return render_template(
+        'admin/mail_watched_domains.html',
+        domains=MailWatchedDomain.query.order_by(MailWatchedDomain.is_keyword, MailWatchedDomain.domain).all(),
+    )
+
+@admin_bp.route('/mail_watched_domains/delete/<int:id>', methods=['POST'])
+@login_required
+@admin_required
+def delete_mail_watched_domain(id):
+    row = MailWatchedDomain.query.get_or_404(id)
+    db.session.delete(row)
+    db.session.commit()
+    return redirect(url_for('admin.mail_watched_domains'))

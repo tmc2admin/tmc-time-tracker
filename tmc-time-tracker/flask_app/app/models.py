@@ -22,10 +22,18 @@ class User(UserMixin, db.Model):
     session_start_time = db.Column(db.Time, nullable=False, server_default=text("'09:00:00'"))
     session_end_time = db.Column(db.Time, nullable=False, server_default=text("'22:00:00'"))
     overtime_end_time = db.Column(db.DateTime, nullable=True) 
-    is_suspended = db.Column(db.Boolean, default=False, nullable=False) 
+    is_suspended = db.Column(db.Boolean, default=False, nullable=False)
     provision_percentage = db.Column(db.Float, nullable=True, default=100.0)
     last_heartbeat_utc = db.Column(db.DateTime, nullable=True, default=datetime.utcnow)
-    
+
+    # --- Microsoft Graph mail access (for the Hausverwaltung mail follow-up feature) ---
+    # Separate from the SSO login flow: only populated once the user has consented to the
+    # Mail.Read/Mail.ReadWrite scopes (not just the basic login scope). Refresh token is
+    # encrypted at rest via app.helpers.crypto; see that module for key management.
+    ms_mail_refresh_token_enc = db.Column(db.Text, nullable=True)
+    ms_mail_token_scope = db.Column(db.String(255), nullable=True)
+    ms_mail_token_updated_at = db.Column(db.DateTime, nullable=True)
+
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
 
@@ -258,3 +266,75 @@ class CoverageEdit(db.Model):
     
     def __repr__(self):
         return f'<CoverageEdit {self.klsid}>'
+
+
+class MailWatchedDomain(db.Model):
+    """
+    Known sender domains/keywords for the Hausverwaltung mail follow-up feature.
+    Seeded from real correspondence; editable by admins under /admin/mail_watched_domains.
+    A row with is_keyword=True matches against subject/body text instead of a sender domain
+    (e.g. 'dringend', 'frist') so that urgent mail from a not-yet-known company still surfaces.
+    """
+    __tablename__ = 'mail_watched_domain'
+
+    id = db.Column(db.Integer, primary_key=True)
+    domain = db.Column(db.String(255), unique=True, nullable=False)
+    label = db.Column(db.String(150), nullable=True)
+    is_keyword = db.Column(db.Boolean, default=False, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f'<MailWatchedDomain {self.domain}>'
+
+
+class MailFollowUp(db.Model):
+    """
+    One row per email conversation (Graph conversationId) that matched a watched
+    domain/keyword. Populated and kept in sync by MailFollowUpService, surfaced on the
+    admin 'Hausverwaltungen - offene Anfragen' dashboard page.
+    """
+    __tablename__ = 'mail_follow_up'
+
+    STATUS_OPEN = 'open'
+    STATUS_ANSWERED = 'answered'
+    STATUS_SNOOZED = 'snoozed'
+    STATUS_DONE = 'done'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+
+    conversation_id = db.Column(db.String(255), nullable=False, index=True)
+    source_message_id = db.Column(db.String(255), nullable=True)
+    web_link = db.Column(db.String(1024), nullable=True)
+
+    subject = db.Column(db.String(500), nullable=True)
+    counterpart_name = db.Column(db.String(255), nullable=True)
+    counterpart_email = db.Column(db.String(255), nullable=True)
+    company_label = db.Column(db.String(255), nullable=True)
+
+    last_inbound_at = db.Column(db.DateTime, nullable=True)
+    last_outbound_at = db.Column(db.DateTime, nullable=True)
+    last_inbound_preview = db.Column(db.Text, nullable=True)
+
+    status = db.Column(db.String(20), nullable=False, default=STATUS_OPEN)
+    due_date = db.Column(db.Date, nullable=True)  # "Wiedervorlage" date
+
+    draft_text = db.Column(db.Text, nullable=True)
+    draft_generated_at = db.Column(db.DateTime, nullable=True)
+    draft_error = db.Column(db.String(500), nullable=True)
+
+    outlook_draft_id = db.Column(db.String(255), nullable=True)
+    outlook_draft_web_link = db.Column(db.String(1024), nullable=True)
+    outlook_draft_created_at = db.Column(db.DateTime, nullable=True)
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = db.relationship('User', backref='mail_follow_ups')
+
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'conversation_id', name='_user_conversation_uc'),
+    )
+
+    def __repr__(self):
+        return f'<MailFollowUp {self.conversation_id} status={self.status}>'

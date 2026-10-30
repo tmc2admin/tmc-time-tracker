@@ -109,7 +109,12 @@ def create_app():
             client_secret=app.config['OAUTH_CLIENT_SECRET'],
             server_metadata_url=f"{app.config['OAUTH_AUTHORITY']}/v2.0/.well-known/openid-configuration",
             client_kwargs={
-                'scope': 'openid profile email User.Read',
+                # Mail.Read/Mail.ReadWrite + offline_access power the Hausverwaltung mail
+                # follow-up feature (admin.mail_followups); offline_access is required to
+                # receive a refresh token on the v2.0 endpoint. Login itself still only
+                # needs openid/profile/email/User.Read - the mail scopes are additional
+                # consent, so existing users will see a one-time re-consent prompt.
+                'scope': 'openid profile email User.Read Mail.Read Mail.ReadWrite offline_access',
                 'code_challenge_method': 'S256'
             },
         )
